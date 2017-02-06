@@ -4,7 +4,7 @@ Charming Demo title
 # List of application per topics
 Here we can write a list of applications divided per topics. We do not have to use all of them, just put some and we will choose the best ones.
 
-KINEMTICS
+KINEMATICS
 - touch finger
 - grasp objects
 
