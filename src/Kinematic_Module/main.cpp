@@ -15,11 +15,11 @@ using namespace yarp::sig;
 using namespace yarp::math;
 
 
-int maxRange = 0.45;
-int minRange = 0.35;
-int maxLength = 0.45;
-int minLength = 0.25;
-int height = 0.10;
+double maxRange = 0.45;
+double minRange = 0.35;
+double maxLength = 0.45;
+double minLength = 0.25;
+double height = 0.10;
 
 /*****************************************************/
 class CtrlModule: public RFModule
@@ -57,22 +57,28 @@ protected:
     {
 
     Vector xnew = x;
-    double A = norm2(x.subVector(0,1));
+
 	
-	if (xnew[1]>-0.001 && xnew[1]< 0.001)
+    if (xnew[1]>-0.01 && xnew[1]< 0.01)
 	{
-		xnew[0] = max (-maxRange, xnew[0]);
-		xnew[0] = min (-minRange, xnew[0]);
-		xnew[1] = 0;
+        xnew[0] = max(-maxRange, xnew[0]);
+        xnew[0] = min(-minRange, xnew[0]);
+        xnew[1] = 0.01;
 	}
+
+    double A = norm2(xnew.subVector(0,1));
+    double alpha = atan(x[0]/fabs(x[1]));
+    yDebug()<<"alpha "<<alpha*180.0/M_PI;
+
+
 	if (A > maxRange )
 	{	
-		xnew[0]= -maxRange*sin(x[0]/x[1]);
-		xnew[1]= maxRange*cos(x[0]/x[1]);
+        xnew[0]= maxRange*sin(alpha);
+        xnew[1]= sign(x[1]) * maxRange*cos(alpha);
 	}else if(A < minRange)
 	{
-		xnew[0]= -minRange*sin(x[0]/x[1]);
-		xnew[1]= minRange*cos(x[0]/x[1]);
+        xnew[0]= minRange*sin(alpha);
+        xnew[1]= sign(x[1]) * minRange*cos(alpha);
 		
 	}
 
@@ -85,25 +91,28 @@ protected:
     Vector computeHandOrientationPoint(const Vector &x, const string &hand)
     {
         Matrix Rot(3,3);
+        Vector ori(4);
         if (hand=="right")
         {
-        Rot(0,0)=-1.0; Rot(0,1)= 0.0; Rot(0,2)= 0.0;
-        Rot(1,0)= 0.0; Rot(1,1)= 0.0; Rot(1,2)=-1.0;
-        Rot(2,0)= 0.0; Rot(2,1)=-1.0; Rot(2,2)= 0.0;
+            Rot(0,0)=-1.0; Rot(0,1)= 0.0; Rot(0,2)= 0.0;
+            Rot(1,0)= 0.0; Rot(1,1)= 0.0; Rot(1,2)=-1.0;
+            Rot(2,0)= 0.0; Rot(2,1)=-1.0; Rot(2,2)= 0.0;
+
+//            ori[0]=0.0; ori[1]=0.0; ori[2]=-1.0; ori[3]= M_PI/2.0-atan(x[0]/fabs(x[1]));
         }
         else
         {
-        Rot(0,0)=-1.0; Rot(0,1)= 0.0; Rot(0,2)= 0.0;
-        Rot(1,0)= 0.0; Rot(1,1)= 0.0; Rot(1,2)= 1.0;
-        Rot(2,0)= 0.0; Rot(2,1)=-1.0; Rot(2,2)= 0.0;
-	}
+            Rot(0,0)=-1.0; Rot(0,1)= 0.0; Rot(0,2)= 0.0;
+            Rot(1,0)= 0.0; Rot(1,1)= 0.0; Rot(1,2)= -1.0;
+            Rot(2,0)= 0.0; Rot(2,1)= -1.0; Rot(2,2)= 0.0;
+//            ori[0]=0.0; ori[1]=0.0; ori[2]= 1.0; ori[3]= M_PI/2.0-atan(x[0]/fabs(x[1]));
+        }
 
-	Vector ori(4);
-        ori[0]=0.0; ori[1]=0.0; ori[2]=1.0; ori[3]= -x[0]/x[1];
+//        Matrix Rot2 = axis2dcm(ori);
 
-	Matrix Rot2 = axis2dcm(ori);
+//        return dcm2axis(Rot2.submatrix(0,2,0,2)*Rot);
+        return dcm2axis(Rot);
 
-	return dcm2axis(Rot2.submatrix(0,2,0,2)*Rot);
     }
 
 
@@ -210,7 +219,7 @@ void moveFingers(const string &hand,
         double t0=Time::now();
         while (!done&&(Time::now()-t0<10.0))
         {
-            yInfo()<<"Waiting...";
+//            yInfo()<<"Waiting...";
             Time::delay(0.1);   // release the quantum to avoid starving resources
             ipos->checkMotionDone(&done);
         }
@@ -236,6 +245,7 @@ void moveFingers(const string &hand,
 
 
         xNew = computePosHandPoint(x);
+        yDebug()<<"point position xNew "<<xNew.toString(3,3).c_str();
 
         Vector o=computeHandOrientationPoint(xNew,hand);
         yInfo()<<"computed orientation = ("<<o.toString(3,3)<<")";
@@ -446,6 +456,14 @@ public:
                         target[i-1] = command.get(i).asDouble();
                     fingers_closure=command.get(4).asDouble();
                 }
+                else if (command.size() ==4)
+                {
+                    yDebug()<<"check";
+
+                    for (int i=1;i<=3; i++)
+                        target[i-1] = command.get(i).asDouble();
+                }
+
 
             }
 
