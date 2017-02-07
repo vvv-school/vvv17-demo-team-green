@@ -12,7 +12,7 @@ using namespace yarp::sig;
 
 typedef std::pair<string, float> Prediction;
 
-class Processing : public BufferedPort<ImageOf<PixelRgb>>
+class Processing : public BufferedPort<ImageOf<PixelRgb> >
 {
 protected:
   bool init_;
@@ -37,8 +37,8 @@ public:
   {
     this->useCallback();
 
-    BufferedPort<ImageOf<PixelRgb>>::open("/" + moduleName + "/image:i");
-    predictionsOut.open("/" + moduleName + "/predictions:o");
+    BufferedPort<ImageOf<PixelRgb>>::open("/" + moduleName + "/img_stream");
+    predictionsOut.open("/" + moduleName + "/output_class");
 
     return true;
   }
@@ -47,12 +47,12 @@ public:
   {
     imgPortIn.close();
     imgPortOut.close();
-    BufferedPort<ImageOf<PixelRgb>>::close();
+    BufferedPort<ImageOf<PixelRgb> >::close();
   }
 
   void interrupt()
   {
-    BufferedPort<ImageOf<PixelRgb>>::interrupt();
+    BufferedPort<ImageOf<PixelRgb> >::interrupt();
   }
 
   void onRead(ImageOf<PixelRgb> &img) {
@@ -77,7 +77,7 @@ public:
     }
     outPreds.write();
   }
-}
+};
 
 
 class RecoModule: public RFModule
@@ -99,7 +99,7 @@ public:
   bool configure(ResourceFinder &rf)
   {
     this->rf = &rf;
-    std::string moduleName = rf.check("name", Value("recognition_service")).asString();
+    std::string moduleName = rf.check("name", Value("Objet_Recognition")).asString();
     std::string model_path = rf.check("model_path", "data/deploy.prototxt").asString();
     std::string weights_path = rf.check("weights_path", "data/bvlc_reference_caffenet.caffemodel").asString();
     std::string mean_file = rf.check("mean_file", "data/imagenet_mean.binaryproto").asString();
