@@ -1,4 +1,4 @@
-GREANCUB
+GREENCUB
 =============================
 
 # List of modules
