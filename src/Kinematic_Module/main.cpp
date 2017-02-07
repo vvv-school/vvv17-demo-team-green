@@ -115,6 +115,43 @@ protected:
 
     }
 
+    /***************************************************/
+    Vector computeHandOrientationPush(const string &hand)
+{
+        Matrix Rot(3,3);
+        Vector ori(4);
+        if (hand=="left")
+        {
+            Rot(0,0)=-1.0; Rot(0,1)= 0.0; Rot(0,2)= 0.0;
+            Rot(1,0)= 0.0; Rot(1,1)= 0.0; Rot(1,2)=-1.0;
+            Rot(2,0)= 0.0; Rot(2,1)=-1.0; Rot(2,2)= 0.0;
+
+//            ori[0]=0.0; ori[1]=0.0; ori[2]=-1.0; ori[3]= M_PI/2.0-atan(x[0]/fabs(x[1]));
+        }
+        else if (hand == "right")
+        {
+            Rot(0,0)=-1.0; Rot(0,1)= 0.0; Rot(0,2)= 0.0;
+            Rot(1,0)= 0.0; Rot(1,1)= 0.0; Rot(1,2)= -1.0;
+            Rot(2,0)= 0.0; Rot(2,1)= -1.0; Rot(2,2)= 0.0;
+//            ori[0]=0.0; ori[1]=0.0; ori[2]= 1.0; ori[3]= M_PI/2.0-atan(x[0]/fabs(x[1]));
+        }
+	else
+	{
+	    Rot(0,0)= 0.0; Rot(0,1)= 1.0; Rot(0,2)= 0.0;
+            Rot(1,0)=-1.0; Rot(1,1)= 0.0; Rot(1,2)= -1.0;
+            Rot(2,0)= 0.0; Rot(2,1)= 0.0; Rot(2,2)= 0.0;
+	}
+//        Matrix Rot2 = axis2dcm(ori);
+
+//        return dcm2axis(Rot2.submatrix(0,2,0,2)*Rot);
+        return dcm2axis(Rot);
+
+    }
+
+
+
+
+
 
     /***************************************************/
     void pointTargetWithHand(const Vector &x, const Vector &o, const string &hand)
@@ -142,6 +179,42 @@ protected:
         ang[1]=-40.0;   // elevation [deg]
         igaze->lookAtAbsAngles(ang);
         igaze->waitMotionDone();
+    }
+
+    /***************************************************/
+
+    void approachTargetWithHand(const Vector &x, const Vector &o, const string &hand)
+    {
+
+	if (hand=="left" || hand=="front")
+            drvArmR.view(iarm);
+        else
+            drvArmL.view(iarm);
+        Vector dof(10,1.0),dummy;
+        iarm->setDOF(dof,dummy);
+    
+        Vector approach=x;
+	if (hand =="right")approach[1]-=0.1;
+	else if (hand =="left")approach[1]+=0.1;
+	else approach[0]+=0.1;
+        
+        iarm->goToPoseSync(approach,o);
+        iarm->waitMotionDone();
+    }
+
+    /***************************************************/
+
+
+    void roll(const Vector &x, const Vector &o, const string &hand)
+    {
+        iarm->setTrajTime(0.4);
+
+        Vector target=x;
+        if (hand =="right") target[1]+=0.1;
+	else if (hand =="left")target[1]-=0.1;
+	else target[0]-=0.1;
+        iarm->goToPoseSync(target,o);
+        iarm->waitMotionDone();
     }
 
     /***************************************************/
@@ -175,7 +248,7 @@ protected:
 public:
     /***************************************************/
 
-void moveFingers(const string &hand,
+    void moveFingers(const string &hand,
                      const VectorOf<int> &joints,
                      const double fingers_closure)
     {
@@ -275,6 +348,33 @@ void moveFingers(const string &hand,
         return true;
 
     }
+
+
+
+/***************************************************/
+    bool push_it(const Vector &x, const Vector &bin)
+    {
+	string hand;
+	// we select the hand accordingly
+        hand=(bin[0]<20.0?"front":bin[1]>0.0?"right":"left");
+        yInfo()<<"selected hand = \""<<hand<<'\"';
+
+	Vector o=computeHandOrientationPush(hand);
+
+	approachTargetWithHand(x,o,hand);
+        yInfo()<<"approached";
+	
+
+	roll(x,o,hand);
+        yInfo()<<"roll!";
+
+	
+	home(hand);
+        yInfo()<<"gone home";
+        return true;
+    }
+	
+
 
 
 /***************************************************/
