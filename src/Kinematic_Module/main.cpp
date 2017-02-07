@@ -56,17 +56,23 @@ protected:
     Vector computePosHandPoint(const Vector &x)
     {
 
-	Vector xnew = x;
+    Vector xnew = x;
     double A = norm2(x.subVector(0,1));
-
+	
+	if (xnew[1]>-0.001 && xnew[1]< 0.001)
+	{
+		xnew[0] = max (-maxRange, xnew[0]);
+		xnew[0] = min (-minRange, xnew[0]);
+		xnew[1] = 0;
+	}
 	if (A > maxRange )
 	{	
-		xnew[0]= maxRange*sin(-x[0]/x[1]);
-		xnew[1]= maxRange*cos(-x[0]/x[1]);
+		xnew[0]= -maxRange*sin(x[0]/x[1]);
+		xnew[1]= maxRange*cos(x[0]/x[1]);
 	}else if(A < minRange)
 	{
-		xnew[0]= minRange*sin(-x[0]/x[1]);
-		xnew[1]= minRange*cos(-x[0]/x[1]);
+		xnew[0]= -minRange*sin(x[0]/x[1]);
+		xnew[1]= minRange*cos(x[0]/x[1]);
 		
 	}
 
