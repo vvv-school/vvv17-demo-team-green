@@ -7,13 +7,13 @@ import numpy as np
 import os
 from random import shuffle
 
-DIR = "/home/jbweibel/code/vvv17-demo-team-green/"
-DATASET_DIR = DIR + "DATA/"
+DIR = "/home/jbweibel/code/vvv17-demo-team-green/src/Object_Recognition/"
+DATASET_DIR = "/home/jbweibel/Desktop/dump/"
 
 IMAGE_WIDTH = 227
 IMAGE_HEIGHT = 227
 
-LABELS = DIR + "labels_washington.txt"
+LABELS = DIR + "labels.txt"
 
 class_to_label = {}
 with open(LABELS, "r") as fp:
@@ -48,7 +48,7 @@ def create_lmdb(data, lmdb_name):
     in_db = lmdb.open(lmdb_name, map_size=int(1e12))
     with in_db.begin(write=True) as in_txn:
         for in_idx, img_path in enumerate(data):
-            img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+            img = cv2.imread(img_path)
             img = preprocess(img)
             label = class_to_label[img_path.split("/")[-2]]
 
@@ -59,16 +59,17 @@ def create_lmdb(data, lmdb_name):
                 print '{:0>5d} / {:d}'.format(in_idx, len(data)) + ':' + img_path
 
 
-def create_train_val_lmdb(depth=True):
-    classes = os.listdir(DATASET_DIR)
+def create_train_val_lmdb():
+    classes = class_to_label.keys()
+    dataset = []
     for classname in classes:
-        data += glob(DATASET_DIR + classname + "/*")
+        dataset += glob(DATASET_DIR + classname + "/*")
 
-    shuffle(data)
+    shuffle(dataset)
 
-    split = len(data) / 6
-    val_data = filenames[:split]
-    train_data = filenames[split:]
+    split = len(dataset) / 6
+    val_data = dataset[:split]
+    train_data = dataset[split:]
 
     train_lmdb = DIR + 'input/train_lmdb'
     validation_lmdb = DIR + 'input/validation_lmdb'
