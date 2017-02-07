@@ -1,3 +1,5 @@
-# Input: cropped image with the object to recognize
+# Input Output of the module
 
-# Output: label of the object
+- Input: cropped image with the object to recognize
+
+- Output: label of the object
