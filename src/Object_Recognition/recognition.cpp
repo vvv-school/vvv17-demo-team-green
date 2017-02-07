@@ -5,8 +5,8 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/opencv.hpp>
 
-using namespace std; 
-using namespace yarp::os; 
+using namespace std;
+using namespace yarp::os;
 using namespace yarp::dev;
 using namespace yarp::sig;
 
@@ -25,7 +25,7 @@ public:
   Processing(const std::string &moduleName, std::string model_path, std::string weights_path, std::string mean_file, std::string label_file)
   {
     this->moduleName = moduleName;
-    classifier_ = new Classifier(model_path, weights_path, mean_file, label_file);  
+    classifier_ = new Classifier(model_path, weights_path, mean_file, label_file);
   }
 
   ~Processing()
@@ -57,7 +57,13 @@ public:
 
   void onRead(ImageOf<PixelRgb> &img) {
     cv::Mat in_cv = cv::arrToMat( (IplImage *)img.getIpalImage() );
-    std::vector<Prediction> predictions = classifier_->Classify(img);
+    std::vector<Prediction> predictions = classifier_->Classify(img, 3);
+
+    for (int i=0; i < predictions.size(); i++) {
+      std::cout << "Class " << predictions[i].first
+                << " predicted with confidence " << predictions[i].first
+                << std::endl;
+    }
 
     Bottle &outPreds = predictionsOut.prepare();
 
@@ -65,9 +71,11 @@ public:
     {
       // TODO What kind of output ? just one predictions or multiple, with or without confidence ?
       outPreds.addString(predictions[0].first);
-      out.Preds.write();
+    } else
+    {
+      outPreds.addString("NO_PREDICTION");
     }
-
+    outPreds.write();
   }
 }
 
@@ -85,7 +93,7 @@ protected:
   bool attach(RpcServer &source)
   {
     return this->yarp().attachAsServer(source);
-  } 
+  }
 
 public:
   bool configure(ResourceFinder &rf)
@@ -126,19 +134,20 @@ public:
     if (cmd == "help")
     {
       reply.addVocab(Vocab::encode("many"));
-      reply.addString("load");
-      reply.addString("recognize");
+      reply.addString("recognize_file");
       reply.addString("quit");
     }
-    else if (cmd == "recognize")
+    else if (cmd == "recognize_file")
     {
-      
-    }
-    else if (cmd == "load")
-    {
-      std::string img_path = command.get(1).asString();
-      cv::Mat img = cv::imread(img_path, CV_LOAD_IMAGE_COLOR);
-      std::vector<Prediction> predictions = classifier_->Classify(img);
+      string filename = command.get(1).asString();
+      cv::Mat img_cv = cv::imread(filename, CV_LOAD_IMAGE_COLOR);
+
+      yarp::sig::ImageOf<yarp::sig::PixelRgb> &inImage  = processing->prepare();
+
+      IplImage img = img_cv;
+      outImage.resize(img.width, img.height);
+      cvCopy( &img, (IplImage *) outImage.getIplImage());
+      processing->write();
     }
     else
     {
