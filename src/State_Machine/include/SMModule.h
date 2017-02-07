@@ -1,15 +1,31 @@
 #include <string>
+#include <vector>
 #include <yarp/os/RFModule.h>
 #include <yarp/os/RpcServer.h>
+#include <yarp/os/RpcClient.h>
 #include <yarp/os/BufferedPort.h>
 #include <yarp/os/Bottle.h>
+
+
+
+using namespace std;
+using namespace yarp::os;
+
+#define START_STATE                 0
+#define IDLE_STATE                  1
+#define TRACKING_FACE_STATE         2
+#define TRACKING_OBJECT_STATE       3
+#define RECOGNIZE_OBJECT_STATE      4
+#define POINT_OBJECT_STATE          5
+#define REACT_STATE                 6
+#define PUSH_OBJECT_STATE           7
 
 class SMModule : public yarp::os::RFModule
 {
 public:
 
-    SMModule;
-    virtual ~SMModule;
+    //SMModule;
+    //virtual ~SMModule;
 
     /*
     * Configure function. Receive a previously initialized
@@ -44,12 +60,26 @@ public:
     virtual bool close();
 
 private:
-    std::string encode(const std::string &msg);
-    std::string decode(const std::string &msg);
+    void pushObject();
+    bool objectInBin();
+    void pointAtObject();
+    bool getBinCoords();
+    bool track(const string trackedType);
+    string queryDetector();
+    bool openPorts();
+
 
 private:
-    std::string modeParam;
+    std::string moduleName;
+    bool shouldWait;
+    int state;
+
+    vector<double> objPos;
+    vector<double> facePos;
+    vector<double> binPos;
     yarp::os::RpcServer commandPort;                    // command port
-    yarp::os::BufferedPort<yarp::os::Bottle> inPort;    // input port
-    yarp::os::BufferedPort<yarp::os::Bottle> outPort;   // output port
+    yarp::os::RpcClient KinematicsPort;                 // Kinematics
+    yarp::os::RpcClient DetectorPort;                   // Detector
+    yarp::os::RpcClient TrackingPort;                // Tracker
+    yarp::os::RpcClient RecogniserPort;                 // Recogniser
 };

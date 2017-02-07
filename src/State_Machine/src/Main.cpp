@@ -11,7 +11,7 @@ int main(int argc, char * argv[])
 {
     Network yarp;
 
-    Codec module;
+    SMModule module;
     ResourceFinder rf;
     rf.configure(argc, argv);
     rf.setDefaultContext("StateMachineModule");
