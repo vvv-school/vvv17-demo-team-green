@@ -33,6 +33,9 @@ protected:
     int startup_ctxt_arm_left;
     int startup_ctxt_gaze;
 
+    Vector target;
+    RpcServer rpcPort;
+
 
 
     /***************************************************
@@ -54,7 +57,7 @@ protected:
     {
 
 	Vector xnew = x;
-	double A = norm2(x[0],x[1]);
+    double A = norm2(x.subVector(0,1));
 
 	if (A > maxRange )
 	{	
@@ -99,7 +102,7 @@ protected:
 
 
     /***************************************************/
-    void pointTargetWithHand(const Vector &x, const Vector &o)
+    void pointTargetWithHand(const Vector &x, const Vector &o, const string &hand)
     {
 
 	if (hand=="right")
@@ -127,7 +130,7 @@ protected:
     }
 
     /***************************************************/
-    void home()
+    void home(const string &hand)
     {
         Vector home_x(3);
         home_x[0]=-0.2;
@@ -215,59 +218,46 @@ void moveFingers(const string &hand,
 
 
 /***************************************************/
-    bool point_it(const double fingers_closure)
+    bool point_it(const Vector &x, const double fingers_closure)
     {
-        Vector x; string hand;
-        if (object.getLocation(x))
-        {
-            yInfo()<<"retrieved 3D location = ("<<x.toString(3,3)<<")";
+        Vector xNew; string hand;
 
-	x = computePosHandPoint(x);
 
-            // we select the hand accordingly
-            hand=(x[1]>0.0?"right":"left");
-            yInfo()<<"selected hand = \""<<hand<<'\"';
-        }
-        else
-            return false;
+        // we select the hand accordingly
+        hand=(x[1]>0.0?"right":"left");
+        yInfo()<<"selected hand = \""<<hand<<'\"';
 
-        fixate(x);
-        yInfo()<<"fixating at ("<<x.toString(3,3)<<")";
 
-        // refine the localization of the object
-        // with a proper hand-related map
-        if (object.getLocation(x,hand))
-        {
-            yInfo()<<"refined 3D location = ("<<x.toString(3,3)<<")";
 
-	    x = computePosHandPoint(x);
+        xNew = computePosHandPoint(x);
 
-            Vector o=computeHandOrientationPoint(x,hand);
-            yInfo()<<"computed orientation = ("<<o.toString(3,3)<<")";
+        Vector o=computeHandOrientationPoint(xNew,hand);
+        yInfo()<<"computed orientation = ("<<o.toString(3,3)<<")";
 
-            // we set up here the lists of joints we need to actuate
-            VectorOf<int> fingers;
-            for (int i=13; i<16; i++)
-                fingers.push_back(i);
+        // we set up here the lists of joints we need to actuate
+        VectorOf<int> fingers;
+        for (int i=13; i<16; i++)
+            fingers.push_back(i);
 
-            // let's put the hand in the pre-grasp configuration
-            moveFingers(hand,fingers,0.0);
-            yInfo()<<"prepared hand";
+        // let's put the hand in the pre-grasp configuration
+        moveFingers(hand,fingers,0.0);
+        yInfo()<<"prepared hand";
 
-            pointTargetWithHand(hand,x,o);
-            yInfo()<<"approached object";
 
-            moveFingers(hand,fingers,fingers_closure);
-            yInfo()<<"grasped";
+        moveFingers(hand,fingers,fingers_closure);
+        yInfo()<<"closed fingers";
 
-            moveFingers(hand,fingers,0.0);
-            yInfo()<<"released";
 
-            home(hand);
-            yInfo()<<"gone home";
-            return true;
-        }
-        return false;
+        pointTargetWithHand(xNew,o,hand);
+        yInfo()<<"approached object";
+
+//        moveFingers(hand,fingers,0.0);
+//        yInfo()<<"released";
+
+        home(hand);
+        yInfo()<<"gone home";
+        return true;
+
     }
 
 
@@ -324,6 +314,8 @@ public:
         }
 
         // FILL IN THE CODE
+
+        target.resize(3,0.0);
 
         Property optGaze;
         optGaze.put("device","gazecontrollerclient");
@@ -438,9 +430,20 @@ public:
 
             // we can pass a new value via rpc
             if (command.size()>1)
-                fingers_closure=command.get(1).asDouble();
+            {
+                yInfo()<<"command size: "<<command.size();
+                if (command.size() ==5)
+                {
+                    yDebug()<<"check";
 
-            bool ok=point_it(fingers_closure);
+                    for (int i=1;i<=3; i++)
+                        target[i-1] = command.get(i).asDouble();
+                    fingers_closure=command.get(4).asDouble();
+                }
+
+            }
+
+            bool ok=point_it(target,fingers_closure);
             // we assume the robot is not moving now
             if (ok)
             {
