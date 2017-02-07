@@ -11,6 +11,10 @@ using namespace yarp::os;
 
 bool SMModule::configure(yarp::os::ResourceFinder &rf) {
 
+    objPos.resize(3);    
+    binPos.resize(3);
+    facePos.resize(3);
+
     yInfo()<<"Configuring the SMModule module...";
     state = START_STATE;
     shouldWait = true; 
@@ -110,18 +114,17 @@ bool SMModule::getBinCoords()
     RecogniserPort.write(cmd, reply);
     if (reply.size() > 0)
     {
-        return false;
-    }   
-    Bottle &binPosList = reply.get(0).asList();
-    if (binPos.size() > 2)
-    {
-        binPos.get(0)
-    }
-    else
-    {
+        if (reply.get(0).asList()->size() > 2)
+        {
+            binPos[0] = reply.get(0).asList()->get(0).asDouble();
+            binPos[1] = reply.get(0).asList()->get(1).asDouble();
+            binPos[2] = reply.get(0).asList()->get(2).asDouble();
 
-    }
-    return true;
+            return true;        
+            
+        }
+    }   
+    return false;
 }
 
 void SMModule::pointAtObject()
@@ -137,7 +140,7 @@ void SMModule::pointAtObject()
 
 bool SMModule::objectInBin()
 {
-    if (objPos.get(0).asDouble() < binPos.get(0).asDouble()+0.105 && objPos.get(0).asDouble() > binPos.get(0).asDouble() - 0.105 && objPos.get(1).asDouble() < binPos.get(1).asDouble() + 0.1485 && objPos.get(1).asDouble() > binPos.get(1).asDouble() - 0.1485) // this is the size of the bin, would be nice to get from perception!!!!!!!!
+    if (objPos[0] < binPos[0]+0.105 && objPos[0] > binPos[0] - 0.105 && objPos[1] < binPos[1] + 0.1485 && objPos[1] > binPos[1] - 0.1485) // this is the size of the bin, would be nice to get from perception!!!!!!!!
     {
         return true;
     }
@@ -152,13 +155,13 @@ void SMModule::pushObject()
     Bottle cmd, reply;
     cmd.addString("Push");
     Bottle &objList = cmd.addList();
-    objList.addDouble(objPos.get(0).asDouble());
-    objList.addDouble(objPos.get(1).asDouble());
-    objList.addDouble(objPos.get(2).asDouble());
+    objList.addDouble(objPos[0]);
+    objList.addDouble(objPos[1]);
+    objList.addDouble(objPos[2]);
     Bottle &binList = cmd.addList();
-    binList.addDouble(binPos.get(0).asDouble());
-    binList.addDouble(binPos.get(1).asDouble());
-    binList.addDouble(binPos.get(2).asDouble());
+    binList.addDouble(binPos[0]);
+    binList.addDouble(binPos[1]);
+    binList.addDouble(binPos[2]);
     KinematicsPort.write(cmd,reply);
 }
 
@@ -254,17 +257,17 @@ bool SMModule::respond(const Bottle& command, Bottle& reply) {
         if (command.get(1).asString() == "object")
         {
             Bottle reply;
-            reply.addDouble(objPos.get(0).asDouble());
-            reply.addDouble(objPos.get(1).asDouble());
-            reply.addDouble(objPos.get(2).asDouble());
+            reply.addDouble(objPos[0]);
+            reply.addDouble(objPos[1]);
+            reply.addDouble(objPos[2]);
             commandPort.write(reply);
         }
         else if (command.get(1).asString() == "face")
         {
             Bottle reply;
-            reply.addDouble(facePos.get(0).asDouble());
-            reply.addDouble(facePos.get(1).asDouble());
-            reply.addDouble(facePos.get(2).asDouble());
+            reply.addDouble(facePos[0]);
+            reply.addDouble(facePos[1]);
+            reply.addDouble(facePos[2]);
             commandPort.write(reply);
         }
         else
