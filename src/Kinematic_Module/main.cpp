@@ -5,6 +5,9 @@
 #include <yarp/sig/all.h>
 #include <yarp/math/Math.h>
 
+
+
+
 using namespace std;
 using namespace yarp::os;
 using namespace yarp::dev;
@@ -51,23 +54,23 @@ protected:
     {
 
 	Vector xnew = x;
-	double A = abs(x[0],x[1]);
+	double A = norm2(x[0],x[1]);
 
 	if (A > maxRange )
 	{	
-		xnew[0]= maxRange*sin(-x[0]/x[1]));
-		xnew[1]= maxRange*cos(-x[0]/x[1]));
-	else if(A < minRange)
+		xnew[0]= maxRange*sin(-x[0]/x[1]);
+		xnew[1]= maxRange*cos(-x[0]/x[1]);
+	}else if(A < minRange)
 	{
-		xnew[0]= minRange*sin(-x[0]/x[1]));
-		xnew[1]= minRange*cos(-x[0]/x[1]));
+		xnew[0]= minRange*sin(-x[0]/x[1]);
+		xnew[1]= minRange*cos(-x[0]/x[1]);
 		
 	}
 
       xnew[2]=height;
 
       return xnew;
-      }
+     }
 		
     /****************************************************/
     Vector computeHandOrientationPoint(const Vector &x, const string &hand)
@@ -213,7 +216,7 @@ void moveFingers(const string &hand,
 
 /***************************************************/
     bool point_it(const double fingers_closure)
-	
+    {
         Vector x; string hand;
         if (object.getLocation(x))
         {
