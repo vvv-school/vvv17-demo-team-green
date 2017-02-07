@@ -19,7 +19,7 @@ icubcontrib_set_default_prefix()
 
 include_directories(${Caffe_INCLUDE_DIRS})
 
-set(folder_source main.cpp)
+set(folder_source main.cpp Classifier.h)
 
 add_definitions(-D_USE_MATH_DEFINES -DCPU_ONLY)
 include_directories(${ICUB_INCLUDE_DIRS} ${YARP_INCLUDE_DIRS})

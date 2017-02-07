@@ -18,11 +18,11 @@ protected:
   bool init_;
   std::string moduleName;
   BufferedPort<Bottle> predictionsOut;
-  Classifier classifier_;
+  Classifier *classifier_;
 
 public:
 
-  Processing(const std::string &moduleName, std::string model_path, std::string weights_path, std::string mean_file, std::string label_file)
+  Processing(const std::string &moduleName,const  std::string &model_path, const std::string &weights_path, const std::string &mean_file, const std::string &label_file)
   {
     this->moduleName = moduleName;
     classifier_ = new Classifier(model_path, weights_path, mean_file, label_file);
@@ -37,7 +37,7 @@ public:
   {
     this->useCallback();
 
-    BufferedPort<ImageOf<PixelRgb>>::open("/" + moduleName + "/img_stream");
+    BufferedPort<ImageOf<PixelRgb> >::open("/" + moduleName + "/img_stream");
     predictionsOut.open("/" + moduleName + "/output_class");
 
     return true;
@@ -45,8 +45,7 @@ public:
 
   void close()
   {
-    imgPortIn.close();
-    imgPortOut.close();
+    predictionsOut.close();
     BufferedPort<ImageOf<PixelRgb> >::close();
   }
 
@@ -56,8 +55,8 @@ public:
   }
 
   void onRead(ImageOf<PixelRgb> &img) {
-    cv::Mat in_cv = cv::arrToMat( (IplImage *)img.getIpalImage() );
-    std::vector<Prediction> predictions = classifier_->Classify(img, 3);
+    cv::Mat in_cv = cv::cvarrToMat( (IplImage *)img.getIplImage() );
+    std::vector<Prediction> predictions = classifier_->Classify(in_cv, 3);
 
     for (int i=0; i < predictions.size(); i++) {
       std::cout << "Class " << predictions[i].first
@@ -75,7 +74,7 @@ public:
     {
       outPreds.addString("NO_PREDICTION");
     }
-    outPreds.write();
+    predictionsOut.write();
   }
 };
 
@@ -86,24 +85,26 @@ class RecoModule: public RFModule
 protected:
   ResourceFinder *rf;
   RpcServer rpcPort;
+  bool closing;
 
   Processing *processing;
   friend class processing;
 
-  bool attach(RpcServer &source)
+  /*bool attach(RpcServer &source)
   {
     return this->yarp().attachAsServer(source);
-  }
+  }*/
 
 public:
   bool configure(ResourceFinder &rf)
   {
+    closing = false;
     this->rf = &rf;
     std::string moduleName = rf.check("name", Value("Objet_Recognition")).asString();
-    std::string model_path = rf.check("model_path", "data/deploy.prototxt").asString();
-    std::string weights_path = rf.check("weights_path", "data/bvlc_reference_caffenet.caffemodel").asString();
-    std::string mean_file = rf.check("mean_file", "data/imagenet_mean.binaryproto").asString();
-    std::string label_file = rf.check("label_file", "data/synset_words.txt").asString();
+    std::string model_path = rf.check("model_path", Value("data/deploy.prototxt")).asString();
+    std::string weights_path = rf.check("weights_path", Value("data/bvlc_reference_caffenet.caffemodel")).asString();
+    std::string mean_file = rf.check("mean_file", Value("data/imagenet_mean.binaryproto")).asString();
+    std::string label_file = rf.check("label_file", Value("data/synset_words.txt")).asString();
 
     rpcPort.open(("/" + moduleName + "/rpc").c_str());
     processing = new Processing(moduleName, model_path, weights_path, mean_file, label_file);
@@ -127,6 +128,17 @@ public:
     return true;
   }
 
+  bool updateModule()
+  {
+    return !closing;
+  }
+
+  bool quit()
+  {
+    closing = true;
+    return true;
+  }
+
   bool respond(const Bottle &command, Bottle &reply)
   {
     string cmd = command.get(0).asString();
@@ -145,8 +157,8 @@ public:
       yarp::sig::ImageOf<yarp::sig::PixelRgb> &inImage  = processing->prepare();
 
       IplImage img = img_cv;
-      outImage.resize(img.width, img.height);
-      cvCopy( &img, (IplImage *) outImage.getIplImage());
+      inImage.resize(img.width, img.height);
+      cvCopy( &img, (IplImage *) inImage.getIplImage());
       processing->write();
     }
     else
