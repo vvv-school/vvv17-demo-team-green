@@ -49,7 +49,7 @@ protected:
         {
             xnew[0] = max(-maxRange, xnew[0]);
             xnew[0] = min(-minRange, xnew[0]);
-            xnew[1] = 0.01;
+            xnew[1] = 0.1;
         }
 
         double A = norm2(xnew.subVector(0,1));
@@ -79,26 +79,35 @@ protected:
     {
         Matrix Rot(3,3);
         Vector ori(4);
-        if (hand=="right")
+        double alpha = M_PI/4.0-atan(x[0]/fabs(x[1]));
+        if (fabs(alpha) > M_PI/2.0) alpha = 0;
+
+        if (hand=="left")
         {
             Rot(0,0)=-1.0; Rot(0,1)= 0.0; Rot(0,2)= 0.0;
             Rot(1,0)= 0.0; Rot(1,1)= 0.0; Rot(1,2)=-1.0;
             Rot(2,0)= 0.0; Rot(2,1)=-1.0; Rot(2,2)= 0.0;
 
-//            ori[0]=0.0; ori[1]=0.0; ori[2]=-1.0; ori[3]= M_PI/2.0-atan(x[0]/fabs(x[1]));
+           ori[0]=0.0; ori[1]=0.0; ori[2]=-1.0; ori[3]= M_PI/4 +alpha;
+
+           Matrix Rot2 = axis2dcm(ori);
+
+           return dcm2axis(Rot2.submatrix(0,2,0,2)*Rot);
+
         }
-        else
-        {
+        else         {
             Rot(0,0)=-1.0; Rot(0,1)= 0.0; Rot(0,2)= 0.0;
             Rot(1,0)= 0.0; Rot(1,1)= 0.0; Rot(1,2)= -1.0;
             Rot(2,0)= 0.0; Rot(2,1)= -1.0; Rot(2,2)= 0.0;
-//            ori[0]=0.0; ori[1]=0.0; ori[2]= 1.0; ori[3]= M_PI/2.0-atan(x[0]/fabs(x[1]));
+            ori[0]=0.0; ori[1]=0.0; ori[2]= 1.0; ori[3]= alpha;
+            Matrix Rot2 = axis2dcm(ori);
+
+            return dcm2axis(Rot2.submatrix(0,2,0,2)*Rot);
+
+
         }
 
-//        Matrix Rot2 = axis2dcm(ori);
-
-//        return dcm2axis(Rot2.submatrix(0,2,0,2)*Rot);
-        return dcm2axis(Rot);
+//
 
     }
 
@@ -107,7 +116,8 @@ protected:
 {
         Matrix Rot(3,3);
         Vector ori(4);
-        if (hand=="left")
+        if (hand==""
+                "")
         {
             Rot(0,0)=-1.0; Rot(0,1)= 0.0; Rot(0,2)= 0.0;
             Rot(1,0)= 0.0; Rot(1,1)= 0.0; Rot(1,2)=-1.0;
@@ -136,13 +146,13 @@ protected:
     }
 
     /***************************************************/
-    void pointTargetWithHand(const Vector &x, const Vector &o, const string &hand)
+    bool pointTargetWithHand(const Vector &x, const Vector &o, const string &hand)
     {
 
-	if (hand=="right")
-            drvArmR.view(iarm);
-        else
+        if (hand=="right")
             drvArmL.view(iarm);
+        else
+            drvArmR.view(iarm);
 
         Vector dof(10,1.0),dummy;
         iarm->setDOF(dof,dummy);
@@ -150,7 +160,17 @@ protected:
         Vector approach=x;
        // approach[1]+=0.1; // 10 cm
         iarm->goToPoseSync(approach,o);
-        iarm->waitMotionDone();
+//        return iarm->waitMotionDone(0.1,4.0);
+
+        bool done=false;
+        double t0=Time::now();
+        while (!done&&(Time::now()-t0<10.0))
+        {
+            Time::delay(0.1);   // release the quantum to avoid starving resources
+            iarm->checkMotionDone(&done);
+        }
+        return done;
+
     }
 
     /***************************************************/
@@ -174,25 +194,35 @@ protected:
         iarm->setDOF(dof,dummy);
     
         Vector approach=x;
-	if (hand =="right")approach[1]-=0.1;
-	else if (hand =="left")approach[1]+=0.1;
-	else approach[0]+=0.1;
+        if (hand =="right")approach[1]-=0.1;
+        else if (hand =="left")approach[1]+=0.1;
+        else approach[0]+=0.1;
         
         iarm->goToPoseSync(approach,o);
-        iarm->waitMotionDone();
+        iarm->waitMotionDone(0.1,4.0);
     }
 
     /***************************************************/
-    void roll(const Vector &bin, const Vector &o,
+    bool move_object(const Vector &bin, const Vector &o,
               const string &hand)
     {
         iarm->setTrajTime(trajTime);
 
         Vector target=bin;
         yDebug()<<"push target pos "<<target.toString().c_str();
-        iarm->goToPoseSync(target,o);
-        iarm->waitMotionDone();
-    }
+        iarm->goToPoseSync(target,o,trajTime);
+//        return iarm->waitMotionDone(0.1,10.0);
+
+        bool done=false;
+        double t0=Time::now();
+        while (!done&&(Time::now()-t0<10.0))
+        {
+            Time::delay(0.1);   // release the quantum to avoid starving resources
+            iarm->checkMotionDone(&done);
+        }
+        return done;
+
+     }
 
     /***************************************************/
     void home(const string &hand)
@@ -202,7 +232,7 @@ protected:
         home_x[2]=0.08;
 
         // select the correct interface
-        if (hand=="right")
+        if (hand=="left"&&hand=="front")
         {
             drvArmR.view(iarm);
             home_x[1]=0.3;
@@ -268,7 +298,7 @@ public:
         IControlLimits2   *ilim;
         IPositionControl2 *ipos;
         IControlMode2     *imod;
-        if (hand=="right")
+        if (hand=="left")
         {
             drvHandR.view(ilim);
             drvHandR.view(ipos);
@@ -318,7 +348,7 @@ public:
     bool point_it(const Vector &x, const double fingers_closure)
     {
         Vector xNew; string hand;
-
+        bool flag = false;
 
         // we select the hand accordingly
         hand=(x[1]>0.0?"right":"left");
@@ -346,15 +376,18 @@ public:
         yInfo()<<"closed fingers";
 
 
-        pointTargetWithHand(xNew,o,hand);
-        yInfo()<<"approached object";
+        flag=pointTargetWithHand(xNew,o,hand);
+        yInfo()<<"point object";
 
 //        moveFingers(hand,fingers,0.0);
 //        yInfo()<<"released";
 
+
+
+
         home(hand);
         yInfo()<<"gone home";
-        return true;
+        return flag;
 
     }
 
@@ -364,6 +397,7 @@ public:
     bool push_it(const Vector &x, const Vector &bin)
     {
         string hand;
+	bool flag = false;
         Vector newBin = bin;
         newBin[2] = tableHigh+0.05;
         // we select the hand accordingly
@@ -393,14 +427,13 @@ public:
         yInfo()<<"approached";
 
 
-        roll(newBin,o,hand);
-        yInfo()<<"roll!";
-        //TODO: make the roll return
-
-
+        flag=move_object(newBin,o,hand);
+        yInfo()<<"move object!";
+        //TODO: make the move_object return
+		
         home(hand);
         yInfo()<<"gone home";
-        return true;
+        return flag;
     }
 	
 
@@ -447,6 +480,7 @@ public:
     bool configure(ResourceFinder &rf)
     {
         string robot=rf.check("robot",Value("icubSim")).asString();
+        string moduleName = rf.check("name",Value("GC_kinematics")).asString();
 
         if (!openCartesian(robot,"right_arm"))
             return false;
@@ -515,7 +549,7 @@ public:
         drvGaze.view(igaze);
         igaze->storeContext(&startup_ctxt_gaze);
 
-        rpcPort.open("/Kinematic/rpc:i");
+        rpcPort.open("/" +moduleName+"/rpc:i");
         attach(rpcPort);
         return true;
     }
