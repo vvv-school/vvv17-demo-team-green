@@ -91,7 +91,7 @@ bool SMModule::openPorts()
     ret &= TrackingPort.open("/" + moduleName + "/tracking_rpc:o");                   // Tracker
     ret &= RecogniserPort.open("/" + moduleName + "/recogniser_rpc:o");                 // Recogniser
     ret &= BinPort.open("/" + moduleName + "/bin_detector_rpc:o");
-    ret &= SpeechPort.open("/iSpeak/speech-dev/rpc");
+    ret &= SpeechPort.open("/" + moduleName + "/speech_rpc:o");
    // ret &= speechPort.open("/" + moduleName + "/Speech:o"); ??what is this?
 
     if (!ret)
