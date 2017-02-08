@@ -14,6 +14,11 @@ bool SMModule::configure(yarp::os::ResourceFinder &rf) {
     objPos.resize(3);    
     binPos.resize(3);
     facePos.resize(3);
+    bins.resize(3);
+    bins[0].resize(3);
+    bins[1].resize(3);
+    bins[2].resize(3);
+
 
     yInfo()<<"Configuring the SMModule module...";
     state = START_STATE;
@@ -28,6 +33,8 @@ bool SMModule::configure(yarp::os::ResourceFinder &rf) {
     {
         return false;
     }
+
+    state = INITIALIZE_TABLE;
 
     if(!attach(commandPort)) {
         yError()<<"Cannot attach to the commandPort";
@@ -46,6 +53,7 @@ bool SMModule::openPorts()
     ret &= DetectorPort.open("/" + moduleName + "/detector_rpc:o");                   // Detector
     ret &= TrackingPort.open("/" + moduleName + "/tracking_rpc:o");                   // Tracker
     ret &= RecogniserPort.open("/" + moduleName + "/recogniser_rpc:o");                 // Recogniser
+    ret &= BinPort.open("/" + moduleName + "/bin_detector_rpc:o");
 
     if (!ret)
     {
@@ -55,6 +63,58 @@ bool SMModule::openPorts()
     return true;
 }
 
+bool SMModule::initBins()
+{
+    Bottle cmd, reply;
+    cmd.addString("lookTable");
+    TrackingPort.write(cmd, reply); 
+    if (reply.size() < 1 )
+    {
+        yInfo() << "failed to communicate with gaze control";
+        return false;
+    }
+    if (reply.get(0).asString() == "nack")
+    {
+        return false;
+    }
+    cmd.clear();
+    reply.clear();
+    cmd.addString("getBins");
+    BinPort.write(cmd, reply);
+    if (reply.size() < 1 )
+    {
+        yInfo() << "failed to communicate with bin detector";
+        return false;
+    }
+    if (reply.get(0).asString() == "nack")
+    {
+        return false;
+    }
+    bins[0][0] = reply.get(0).asList()->get(0).asDouble();
+    bins[0][1] = reply.get(0).asList()->get(1).asDouble();
+    bins[0][2] = reply.get(0).asList()->get(2).asDouble();
+    bins[1][0] = reply.get(1).asList()->get(0).asDouble();
+    bins[1][1] = reply.get(1).asList()->get(1).asDouble();
+    bins[1][2] = reply.get(1).asList()->get(2).asDouble();
+    bins[2][0] = reply.get(2).asList()->get(0).asDouble();
+    bins[2][1] = reply.get(2).asList()->get(1).asDouble();
+    bins[2][2] = reply.get(2).asList()->get(2).asDouble();
+
+    cmd.clear();
+    reply.clear();
+    cmd.addString("lookUp");
+    TrackingPort.write(cmd, reply); 
+    if (reply.size() < 1 )
+    {
+        yInfo() << "failed to communicate with gaze control";
+        return false;
+    }
+    if (reply.get(0).asString() == "nack")
+    {
+        return false;
+    }
+    return true;
+}
 
 double SMModule::getPeriod() {
     return 0.5; // module periodicity (seconds)
@@ -94,7 +154,7 @@ bool SMModule::track(string trackedType)
     {
         cmd.addString("Track");
         cmd.addString(trackedType);
-        DetectorPort.write(cmd,reply);
+        TrackingPort.write(cmd,reply);
         if (reply.size() > 0 && reply.get(0) == "ok")
         {
             return true;
@@ -112,9 +172,8 @@ bool SMModule::track(string trackedType)
 
 bool SMModule::getBinCoords()
 {
-    Bottle cmd, reply;
-    cmd.addString("getBinCoords");
-    RecogniserPort.write(cmd, reply);
+    Bottle reply;
+    RecogniserPort.write(inImage, reply);
     if (reply.size() > 0)
     {
         if (reply.get(0).asList()->size() > 2)
@@ -123,8 +182,7 @@ bool SMModule::getBinCoords()
             binPos[1] = reply.get(0).asList()->get(1).asDouble();
             binPos[2] = reply.get(0).asList()->get(2).asDouble();
 
-            return true;        
-            
+            return true;
         }
     }   
     return false;
@@ -141,7 +199,19 @@ void SMModule::pointAtObject()
     KinematicsPort.write(cmd,reply);
 }
 
-bool SMModule::objectInBin()
+bool SMModule::getBinImage()
+{
+    Bottle cmd;
+    cmd.addString("getCropImage");
+    DetectorPort.write(cmd, inImage);
+    if (inImage.width() == 0)
+    {
+        return false;
+    }
+    return true;
+}
+
+/*bool SMModule::objectInBin()
 {
     if (objPos[0] < binPos[0]+0.105 && objPos[0] > binPos[0] - 0.105 && objPos[1] < binPos[1] + 0.1485 && objPos[1] > binPos[1] - 0.1485) // this is the size of the bin, would be nice to get from perception!!!!!!!!
     {
@@ -151,7 +221,7 @@ bool SMModule::objectInBin()
     {
         return false;
     }
-}
+}*/
 
 void SMModule::pushObject()
 {
@@ -172,6 +242,16 @@ bool SMModule::updateModule()
 {
     switch(state)
     {
+        case INITIALIZE_TABLE:
+        {
+            if (!initBins())
+            {
+                close();
+                return false;
+            }
+            state = IDLE_STATE;
+            break;
+        }
         case IDLE_STATE:
         {
             string detectorOutput = queryDetector();
@@ -213,6 +293,11 @@ bool SMModule::updateModule()
         }
         case RECOGNISE_OBJECT_STATE:
         {
+            if (!getBinImage())
+            {
+                state = IDLE_STATE;
+                break;
+            }
             if (getBinCoords())
             {
                 state = POINT_OBJECT_STATE;
@@ -236,16 +321,16 @@ bool SMModule::updateModule()
         }
         case REACT_STATE:
         {
-            if (objectInBin())
+            /*if (objectInBin())
             {
                 state = IDLE_STATE;
                 yInfo()<<"switch to IDLE_STATE";
             }
             else
-            {
+            {*/
                 state = PUSH_OBJECT_STATE;
                 yInfo()<<"switch to PUSH_OBJECT_STATE";
-            }
+            //}
 
             break;
         }
