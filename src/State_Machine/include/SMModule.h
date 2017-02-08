@@ -105,5 +105,5 @@ private:
     yarp::os::RpcClient TrackingPort;                // Tracker
     yarp::os::RpcClient RecogniserPort;                 // Recogniser
     yarp::os::RpcClient BinPort;
-    yarp::os::RpcClient SpeechPort;
+    BufferedPort<Bottle> SpeechPort;
 };
