@@ -120,7 +120,7 @@ bool SMModule::initBins()
 }
 
 double SMModule::getPeriod() {
-    return 0.5; // module periodicity (seconds)
+    return 0.5; // module periodicity (seconds)  switch back to 0.01 later?
 }
 
 string SMModule::queryDetector()

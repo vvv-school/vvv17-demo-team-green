@@ -18,6 +18,10 @@ int main(int argc, char * argv[])
     //rf.setDefaultConfigFile("StateMachineModule.ini");
     // rf.setVerbose(true);
 
+    // parameters for speech-dev
+    rf.setDefault("name","iSpeak");
+    rf.setDefault("package","speech-dev");
+
     module.runModule(rf);
 
     yInfo()<<"Main returning...";
