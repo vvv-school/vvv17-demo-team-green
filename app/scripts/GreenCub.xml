@@ -1,0 +1,137 @@
+<application>
+    <name>GreenCub</name>
+    <module>
+        <name>GC_bindetector</name>
+        <parameters></parameters>
+        <node>localhost</node>
+        <prefix></prefix>
+        <geometry>(Pos (x 1568.96) (y 508.689))</geometry>
+    </module>
+    <module>
+        <name>GC_detection</name>
+        <parameters></parameters>
+        <node>localhost</node>
+        <prefix></prefix>
+        <geometry>(Pos (x 1182.95) (y 354.234))</geometry>
+    </module>
+    <module>
+        <name>GC_gazecontrol</name>
+        <parameters></parameters>
+        <node>localhost</node>
+        <prefix></prefix>
+        <geometry>(Pos (x 1539.73) (y 407.892))</geometry>
+    </module>
+    <module>
+        <name>GC_kinematics</name>
+        <parameters></parameters>
+        <node>localhost</node>
+        <prefix></prefix>
+        <geometry>(Pos (x 1032.97) (y 492.457))</geometry>
+    </module>
+    <module>
+        <name>GC_objectrecognition</name>
+        <parameters></parameters>
+        <node>localhost</node>
+        <prefix></prefix>
+        <geometry>(Pos (x 1263.21) (y 461.878))</geometry>
+    </module>
+    <module>
+        <name>GC_statemachine</name>
+        <parameters></parameters>
+        <node>localhost</node>
+        <prefix></prefix>
+        <geometry>(Pos (x 712.202) (y 475.095))</geometry>
+    </module>
+    <module>
+        <name>iSpeak</name>
+        <parameters></parameters>
+        <node>localhost</node>
+        <prefix></prefix>
+        <geometry>(Pos (x 1020.71) (y 570.958))</geometry>
+    </module>
+    <module>
+        <name>yarpdataplayer</name>
+        <parameters></parameters>
+        <node>localhost</node>
+        <prefix></prefix>
+        <geometry>(Pos (x 574.682) (y 85.6304))</geometry>
+    </module>
+    <connection>
+        <from>/GC_statemachine/kinematics_rpc:o</from>
+        <to>/GC_kinematics/service</to>
+        <protocol>tcp</protocol>
+        <geometry>(Pos ((x -1) (y -1)) ((x 111) (y 48)) ((x -100) (y 0))  )</geometry>
+    </connection>
+    <connection>
+        <from>/GC_statemachine/speech:o</from>
+        <to>/iSpeak</to>
+        <protocol>tcp</protocol>
+        <geometry>(Pos ((x -1) (y -1)) ((x 111) (y -48)) ((x 1016.9) (y 437.397))  )</geometry>
+    </connection>
+    <connection>
+        <from>/GC_statemachine/bindetector_rpc:o</from>
+        <to>/GC_bindetector/bindetector_rpc:i</to>
+        <protocol>tcp</protocol>
+        <geometry>(Pos ((x -1) (y -1)) ((x 111) (y 80)) ((x -107) (y 0))  )</geometry>
+    </connection>
+    <connection>
+        <from>/GC_statemachine/detector:o</from>
+        <to>/GC_detection/detector_command:i</to>
+        <protocol>tcp</protocol>
+        <geometry>(Pos ((x -1) (y -1)) ((x 111) (y -80)) ((x -100) (y 16))  )</geometry>
+    </connection>
+    <connection>
+        <from>/SFM/disp:o</from>
+        <to>/GC_detection/disparity:i</to>
+        <protocol>udp</protocol>
+        <geometry>(Pos ((x -1) (y -1)) ((x 931.834) (y 361.935)) ((x -100) (y 0))  )</geometry>
+    </connection>
+    <connection>
+        <from>/GC_detection/detector2gaze:o</from>
+        <to>/GC_gazecontrol/target:i</to>
+        <protocol>tcp</protocol>
+        <geometry>(Pos ((x -1) (y -1)) ((x 100) (y 32)) ((x -107) (y -16))  )</geometry>
+    </connection>
+    <connection>
+        <from>/GC_statemachine/recognizer_rpc:o</from>
+        <to>/GC_objectrecognition/image</to>
+        <protocol>tcp</protocol>
+        <geometry>(Pos ((x -1) (y -1)) ((x 111) (y -16)) ((x 167.063) (y 625.899))  )</geometry>
+    </connection>
+    <connection>
+        <from>/GC_statemachine/tracking_rpc:o</from>
+        <to>/GC_gazecontrol/ctrl_rpc</to>
+        <protocol>tcp</protocol>
+        <geometry>(Pos ((x -1) (y -1)) ((x 111) (y -48)) ((x -107) (y 16))  )</geometry>
+    </connection>
+    <connection>
+        <from>/icub/camcalib/left/out</from>
+        <to>/GC_detection/image:i</to>
+        <protocol>udp</protocol>
+        <geometry>(Pos ((x -1) (y -1)) ((x 891.478) (y 321.579)) ((x -100) (y -32))  )</geometry>
+    </connection>
+    <connection>
+        <from>/icub/camcalib/left/out</from>
+        <to>/GC_bindetector/image:i</to>
+        <protocol>udp</protocol>
+        <geometry>(Pos ((x -1) (y -1)) ((x 891.478) (y 321.579)) ((x 1049.09) (y 321.579)) ((x 1049.09) (y 174.57)) ((x 1392.39) (y 174.57)) ((x 1392.39) (y 492.689)) ((x -107) (y -16))  )</geometry>
+    </connection>
+    <connection>
+        <from>/GC_detection/crop_obj:o</from>
+        <to>/GC_statemachine/detector_image:i</to>
+        <protocol>udp</protocol>
+        <geometry>(Pos ((x 542.402) (y 399.901)) ((x 100) (y -32)) ((x 1306.19) (y 322.234)) ((x 1306.19) (y 266.621)) ((x 536.078) (y 266.621)) ((x 536.078) (y 459.141)) ((x -111) (y -16))  )</geometry>
+    </connection>
+    <connection>
+        <from>/GC_detection/detected_face_obj:o</from>
+        <to>/GC_statemachine/detector:i</to>
+        <protocol>tcp</protocol>
+        <geometry>(Pos ((x 523.262) (y 433.821)) ((x 100) (y 0)) ((x 1333.97) (y 354.234)) ((x 1333.97) (y 248.295)) ((x 500.091) (y 248.295)) ((x 500.091) (y 428.118)) ((x -111) (y -48))  )</geometry>
+    </connection>
+    <connection>
+        <from>/GC_gazecontrol/state_machine_rpc:o</from>
+        <to>/GC_statemachine/rpc:i</to>
+        <protocol>tcp</protocol>
+        <geometry>(Pos ((x -1) (y -1)) ((x 107) (y 0)) ((x 1675.38) (y 407.892)) ((x 1675.38) (y 216.424)) ((x 467.222) (y 216.424)) ((x 467.222) (y 395.095)) ((x -111) (y -80))  )</geometry>
+    </connection>
+</application>
