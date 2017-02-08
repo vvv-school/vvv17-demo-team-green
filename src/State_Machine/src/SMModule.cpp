@@ -91,7 +91,7 @@ bool SMModule::openPorts()
     ret &= TrackingPort.open("/" + moduleName + "/tracking_rpc:o");                   // Tracker
     ret &= RecogniserPort.open("/" + moduleName + "/recogniser_rpc:o");                 // Recogniser
     ret &= BinPort.open("/" + moduleName + "/bin_detector_rpc:o");
-    ret &= SpeechPort.open("/" + moduleName + "/speech_rpc:o");
+    ret &= SpeechPort.open("/" + moduleName + "/speech:o");
    // ret &= speechPort.open("/" + moduleName + "/Speech:o"); ??what is this?
 
     if (!ret)
@@ -327,16 +327,16 @@ void SMModule::speak(const string &phrase)
     yInfo()<<__LINE__; 
     yInfo()<<phrase;  
     // uncomment this when connecting to robot 
-    /*    
-    Bottle cmd, reply;
+        
+    Bottle cmd = SpeechPort.prepare();
     cmd.clear();
-    cmd.addString("say");
     cmd.addString(phrase);    
+    /*
     if (SpeechPort.asPort().isOpen())
     {
-        SpeechPort.write(cmd,reply);
-    }
-    */
+        SpeechPort.write(cmd);
+    }*/
+    SpeechPort.write();
 }
 
 
