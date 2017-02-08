@@ -139,7 +139,7 @@ protected:
     bool pointTargetWithHand(const Vector &x, const Vector &o, const string &hand)
     {
 
-	if (hand=="right")
+        if (hand=="right")
             drvArmR.view(iarm);
         else
             drvArmL.view(iarm);
@@ -150,19 +150,8 @@ protected:
         Vector approach=x;
        // approach[1]+=0.1; // 10 cm
         iarm->goToPoseSync(approach,o);
-        iarm->waitMotionDone();
+        return iarm->waitMotionDone();
 
-		bool done=false;
-        double t0=Time::now();
-        while (!done&&(Time::now()-t0<10.0))
-        {
-//            yInfo()<<"Waiting...";
-            Time::delay(0.1);   // release the quantum to avoid starving resources
-            ipos->checkMotionDone(&done);
-        }
-	
-
-	return done;
     }
 
     /***************************************************/
@@ -186,35 +175,26 @@ protected:
         iarm->setDOF(dof,dummy);
     
         Vector approach=x;
-	if (hand =="right")approach[1]-=0.1;
-	else if (hand =="left")approach[1]+=0.1;
-	else approach[0]+=0.1;
+        if (hand =="right")approach[1]-=0.1;
+        else if (hand =="left")approach[1]+=0.1;
+        else approach[0]+=0.1;
         
         iarm->goToPoseSync(approach,o);
-        iarm->waitMotionDone();
+        iarm->waitMotionDone(0.1,4.0);
     }
 
     /***************************************************/
-    bool roll(const Vector &bin, const Vector &o,
+    bool move_object(const Vector &bin, const Vector &o,
               const string &hand)
     {
         iarm->setTrajTime(trajTime);
 
         Vector target=bin;
         yDebug()<<"push target pos "<<target.toString().c_str();
-        iarm->goToPoseSync(target,o);
+        iarm->goToPoseSync(target,o,trajTime);
+        return iarm->waitMotionDone();
 
-	bool done=false;
-        double t0=Time::now();
-        while (!done&&(Time::now()-t0<10.0))
-        {
-//            yInfo()<<"Waiting...";
-            Time::delay(0.1);   // release the quantum to avoid starving resources
-            ipos->checkMotionDone(&done);
-        }
-	
-	return done;
-    }
+     }
 
     /***************************************************/
     void home(const string &hand)
@@ -224,7 +204,7 @@ protected:
         home_x[2]=0.08;
 
         // select the correct interface
-        if (hand=="right")
+        if (hand=="left"&&hand=="front")
         {
             drvArmR.view(iarm);
             home_x[1]=0.3;
@@ -340,7 +320,7 @@ public:
     bool point_it(const Vector &x, const double fingers_closure)
     {
         Vector xNew; string hand;
-	bool flag = false;
+        bool flag = false;
 
         // we select the hand accordingly
         hand=(x[1]>0.0?"right":"left");
@@ -369,7 +349,7 @@ public:
 
 
         flag=pointTargetWithHand(xNew,o,hand);
-        yInfo()<<"approached object";
+        yInfo()<<"point object";
 
 //        moveFingers(hand,fingers,0.0);
 //        yInfo()<<"released";
@@ -419,9 +399,9 @@ public:
         yInfo()<<"approached";
 
 
-        flag=roll(newBin,o,hand);
-        yInfo()<<"roll!";
-        //TODO: make the roll return
+        flag=move_object(newBin,o,hand);
+        yInfo()<<"move object!";
+        //TODO: make the move_object return
 		
         home(hand);
         yInfo()<<"gone home";
@@ -472,6 +452,7 @@ public:
     bool configure(ResourceFinder &rf)
     {
         string robot=rf.check("robot",Value("icubSim")).asString();
+        string moduleName = rf.check("name",Value("GC_kinematics")).asString();
 
         if (!openCartesian(robot,"right_arm"))
             return false;
@@ -540,7 +521,7 @@ public:
         drvGaze.view(igaze);
         igaze->storeContext(&startup_ctxt_gaze);
 
-        rpcPort.open("/Kinematic/rpc:i");
+        rpcPort.open("/" +moduleName+"/rpc:i");
         attach(rpcPort);
         return true;
     }
