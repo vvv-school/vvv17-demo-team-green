@@ -18,6 +18,9 @@ bool BinDetector::configure(yarp::os::ResourceFinder &rf) {
     bins[1].resize(3);
     bins[2].resize(3);
 
+    thresholdH.resize(3);
+    thresholdL.resize(3);
+
     lowBound.push_back(0);
     lowBound.push_back(0);
     lowBound.push_back(0);
@@ -26,13 +29,13 @@ bool BinDetector::configure(yarp::os::ResourceFinder &rf) {
     highBound.push_back(255);
     highBound.push_back(255);
 
-    redThresholdH = cv::Scalar(20, 255, 255);
-    blueThresholdH = cv::Scalar(80, 100, 255);
-    greenThresholdH = cv::Scalar(40, 255, 255);
+    thresholdH[RED_BIN] = cv::Scalar(20, 255, 255);
+    thresholdH[BLUE_BIN] = cv::Scalar(80, 100, 255);
+    thresholdH[GREEN_BIN] = cv::Scalar(40, 255, 255);
 
-    redThresholdL = cv::Scalar(0, 190, 200);
-    blueThresholdL = cv::Scalar(40, 0, 50);
-    greenThresholdL = cv::Scalar(30, 100, 100);
+    thresholdL[RED_BIN] = cv::Scalar(0, 190, 200);
+    thresholdL[BLUE_BIN] = cv::Scalar(40, 0, 50);
+    thresholdL[GREEN_BIN] = cv::Scalar(30, 100, 100);
 
     moduleName = rf.check("name", Value("GC_bindetector")).asString();
     setName(moduleName.c_str());
@@ -60,7 +63,7 @@ bool BinDetector::configure(yarp::os::ResourceFinder &rf) {
 
 
 double BinDetector::getPeriod() {
-    return 0.01; // module periodicity (seconds)
+    return 0.5; // module periodicity (seconds)
 }
 
 
@@ -76,34 +79,70 @@ bool BinDetector::updateModule() {
 
     cvtColor(img, img, CV_RGB2HSV);
 
-    mutex.lock();
+    // mutex.lock();
 
-    cv::inRange(img, cv::Scalar(lowBound[0],lowBound[1],lowBound[2]), 
-        cv::Scalar(highBound[0],highBound[1],highBound[2]), gray);
 
-    mutex.unlock();
+
+    // mutex.unlock();
 
 
    
+    for (int bin_id = 0; bin_id < 3; bin_id++)
+    {
+        cv::inRange(img, thresholdL[bin_id], thresholdH[bin_id], gray);
+
+        std::vector<std::vector<cv::Point> > contours;
+
+        cv::findContours(gray, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+        
+
+        cv::drawContours(img, contours, 0, cv::Scalar(255,255,0));        
+
+        std::vector<cv::Moments> mu(contours.size() );
+        for( int i = 0; i < contours.size(); i++ )
+        { mu[i] = moments( contours[i], false ); }
+
+
+        // //Mass center
+        std::vector<cv::Point2f> mc( contours.size() );
+        for( int i = 0; i < contours.size(); i++ )
+        { 
+            if(contours[i].size()>20)
+            {
+                mc[i] = cv::Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); 
+                cv::circle(img, mc[i], 3, cv::Scalar(0,255,0), -1, 8, 0);
+                bins[bin_id][0] = mc[0].x;
+                bins[bin_id][1] = mc[0].y;
+                bins[bin_id][2] = 0;                
+            }
+
+        }
+     }
+
+
+
+
+    
+
+
+    // // Blue position - alumunium
+    // bins[0][0] = 30;
+    // bins[0][1] = 200;
+    // bins[0][2] = 0;
+
+    // // Green position - plastic
+    // bins[1][0] = 160;
+    // bins[1][1] = 150;
+    // bins[1][2] = 0;
+
+    // // Red position - paper
+    // bins[2][0] = 290;
+    // bins[2][1] = 200;
+    // bins[2][2] = 0;
+
+
 
     cvtColor(img, img, CV_HSV2RGB);
-
-
-    // Blue position - alumunium
-    bins[0][0] = 30;
-    bins[0][1] = 200;
-    bins[0][2] = 0;
-
-    // Green position - plastic
-    bins[1][0] = 160;
-    bins[1][1] = 150;
-    bins[1][2] = 0;
-
-    // Red position - paper
-    bins[2][0] = 290;
-    bins[2][1] = 200;
-    bins[2][2] = 0;
-
 
     IplImage out = img;
     outImage.resize(out.width, out.height);
@@ -128,7 +167,10 @@ bool BinDetector::updateModule() {
 
 bool BinDetector::respond(const Bottle& command, Bottle& reply) {
     if (command.get(0).asString()=="getBins")
+    {
         getBins(reply);
+        return true;
+    }    
     else if (command.get(0).asString()=="setUpperBound")
         setUpperBound(command.get(1).asInt(),command.get(2).asInt(),command.get(3).asInt());
     else if (command.get(0).asString()=="setLowerBound")
@@ -185,6 +227,7 @@ bool BinDetector::getBins(Bottle& reply)
         t.addDouble(bins[i][0]);
         t.addDouble(bins[i][1]);
         t.addDouble(bins[i][2]);
+
     }
 
 

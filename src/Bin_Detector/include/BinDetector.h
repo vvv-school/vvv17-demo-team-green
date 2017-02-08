@@ -16,6 +16,10 @@
 /********************************************************/
 class BinDetector : public yarp::os::RFModule
 {
+    #define RED_BIN      2
+    #define BLUE_BIN     0
+    #define GREEN_BIN    1
+
     yarp::os::RpcServer commandPort;                    // command port
     yarp::os::BufferedPort<yarp::sig::ImageOf<yarp::sig::PixelRgb> >   inPort;   // input port
     yarp::os::BufferedPort<yarp::sig::ImageOf<yarp::sig::PixelRgb> >   imageOut;  
@@ -28,13 +32,8 @@ class BinDetector : public yarp::os::RFModule
     std::vector<int32_t> lowBound;
     std::vector<int32_t> highBound;
 
-    cv::Scalar redThresholdH;
-    cv::Scalar blueThresholdH;
-    cv::Scalar greenThresholdH;
-
-    cv::Scalar redThresholdL;
-    cv::Scalar blueThresholdL;
-    cv::Scalar greenThresholdL;
+    std::vector<cv::Scalar> thresholdH;
+    std::vector<cv::Scalar> thresholdL;
 
     yarp::os::Mutex mutex;
 
