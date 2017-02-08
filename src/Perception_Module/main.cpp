@@ -31,7 +31,7 @@
 #include <yarp/os/BufferedPort.h>
 #include <yarp/os/Semaphore.h>
 
-#define DEBUG_LOCAL
+//#define DEBUG_LOCAL
 
 using namespace yarp::os;
 
