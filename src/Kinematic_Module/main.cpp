@@ -136,7 +136,7 @@ protected:
     }
 
     /***************************************************/
-    void pointTargetWithHand(const Vector &x, const Vector &o, const string &hand)
+    bool pointTargetWithHand(const Vector &x, const Vector &o, const string &hand)
     {
 
 	if (hand=="right")
@@ -151,6 +151,18 @@ protected:
        // approach[1]+=0.1; // 10 cm
         iarm->goToPoseSync(approach,o);
         iarm->waitMotionDone();
+
+		bool done=false;
+        double t0=Time::now();
+        while (!done&&(Time::now()-t0<10.0))
+        {
+//            yInfo()<<"Waiting...";
+            Time::delay(0.1);   // release the quantum to avoid starving resources
+            ipos->checkMotionDone(&done);
+        }
+	
+
+	return done;
     }
 
     /***************************************************/
@@ -183,7 +195,7 @@ protected:
     }
 
     /***************************************************/
-    void roll(const Vector &bin, const Vector &o,
+    bool roll(const Vector &bin, const Vector &o,
               const string &hand)
     {
         iarm->setTrajTime(trajTime);
@@ -191,7 +203,17 @@ protected:
         Vector target=bin;
         yDebug()<<"push target pos "<<target.toString().c_str();
         iarm->goToPoseSync(target,o);
-        iarm->waitMotionDone();
+
+	bool done=false;
+        double t0=Time::now();
+        while (!done&&(Time::now()-t0<10.0))
+        {
+//            yInfo()<<"Waiting...";
+            Time::delay(0.1);   // release the quantum to avoid starving resources
+            ipos->checkMotionDone(&done);
+        }
+	
+	return done;
     }
 
     /***************************************************/
@@ -318,7 +340,7 @@ public:
     bool point_it(const Vector &x, const double fingers_closure)
     {
         Vector xNew; string hand;
-
+	bool flag = false;
 
         // we select the hand accordingly
         hand=(x[1]>0.0?"right":"left");
@@ -346,15 +368,18 @@ public:
         yInfo()<<"closed fingers";
 
 
-        pointTargetWithHand(xNew,o,hand);
+        flag=pointTargetWithHand(xNew,o,hand);
         yInfo()<<"approached object";
 
 //        moveFingers(hand,fingers,0.0);
 //        yInfo()<<"released";
 
+
+
+
         home(hand);
         yInfo()<<"gone home";
-        return true;
+        return flag;
 
     }
 
@@ -364,6 +389,7 @@ public:
     bool push_it(const Vector &x, const Vector &bin)
     {
         string hand;
+	bool flag = false;
         Vector newBin = bin;
         newBin[2] = tableHigh+0.05;
         // we select the hand accordingly
@@ -393,14 +419,13 @@ public:
         yInfo()<<"approached";
 
 
-        roll(newBin,o,hand);
+        flag=roll(newBin,o,hand);
         yInfo()<<"roll!";
         //TODO: make the roll return
-
-
+		
         home(hand);
         yInfo()<<"gone home";
-        return true;
+        return flag;
     }
 	
 
