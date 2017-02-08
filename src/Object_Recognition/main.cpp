@@ -48,7 +48,7 @@ protected:
       {
         reply.addString("plastic");
       }
-      //reply.addString(predictions[0].first);
+      reply.addString(predictions[0].first);
     } else
     {
       reply.addString("NO_PREDICTION");
