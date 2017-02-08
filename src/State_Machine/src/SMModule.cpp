@@ -20,6 +20,7 @@ bool SMModule::configure(yarp::os::ResourceFinder &rf) {
     bins[2].resize(3);
 
 
+    targetBin = "";
     yInfo()<<"Configuring the SMModule module...";
     state = START_STATE;
     shouldWait = true; 
@@ -43,6 +44,40 @@ bool SMModule::configure(yarp::os::ResourceFinder &rf) {
 
     // everything is fine
     return true;
+
+}
+
+int SMModule::checkObjBin(Bottle cmd)
+{
+
+    Bottle rpccmd, reply;
+    rpccmd.addString("stopTracking");
+    rpccmd.addString("object");
+    TrackingPort.write(rpccmd,reply);
+    if(reply.size()> 0)
+    {
+        if(reply.get(0).asString() == "ack")
+        {
+            initBins();
+            for(int i = 0; i<bins.size(); ++i)
+            {
+                if(cmd.get(0).asInt()<bins[i][0] +10  &&    cmd.get(0).asInt()>bins[i][0] -10   && cmd.get(1).asInt()<bins[i][1] +10  && cmd.get(1).asInt()>bins[i][1] -10 )        
+                {
+                    if(i==0 && targetBin == "aluminum")       
+                        return 1;
+                    if(i==1 && targetBin == "plastic")       
+                        return 1; 
+                    if(i==2 && targetBin == "paper")       
+                        return 1;         
+                }
+                if(cmd.get(0).asInt() < 190  &&    cmd.get(0).asInt() > 150   && cmd.get(1).asInt() < 150  && cmd.get(1).asInt() > 90 )        
+                {
+                    return 2;
+                }            
+            }
+        }    
+    }
+    return 0;
 }
 
 bool SMModule::openPorts()
@@ -50,10 +85,14 @@ bool SMModule::openPorts()
     bool ret = false;
     ret = commandPort.open("/" + moduleName + "/rpc:i");
     ret &= KinematicsPort.open("/" + moduleName + "/kinematic_rpc:o");                 // Kinematics
-    ret &= DetectorPort.open("/" + moduleName + "/detector_rpc:o");                   // Detector
+    ret &= DetectorPortOut.open("/" + moduleName + "/detector:o");                   // Detector
+    ret &= DetectorPortIn.open("/" + moduleName + "/detector:i");                   // Detector
+    ret &= DetectorPortImage.open("/" + moduleName + "/detector_image:i");                   // Detector Image
     ret &= TrackingPort.open("/" + moduleName + "/tracking_rpc:o");                   // Tracker
     ret &= RecogniserPort.open("/" + moduleName + "/recogniser_rpc:o");                 // Recogniser
     ret &= BinPort.open("/" + moduleName + "/bin_detector_rpc:o");
+    ret &= SpeechPort.open("/iSpeak/speech-dev/rpc");
+   // ret &= speechPort.open("/" + moduleName + "/Speech:o"); ??what is this?
 
     if (!ret)
     {
@@ -65,6 +104,9 @@ bool SMModule::openPorts()
 
 bool SMModule::initBins()
 {
+    
+    if(TrackingPort.getOutputCount() == 0)
+        return true;
     Bottle cmd, reply;
     cmd.addString("lookTable");
     TrackingPort.write(cmd, reply); 
@@ -117,34 +159,83 @@ bool SMModule::initBins()
 }
 
 double SMModule::getPeriod() {
-    return 0.5; // module periodicity (seconds)
+    return 0.5; // module periodicity (seconds)  switch back to 0.01 later?
 }
 
 string SMModule::queryDetector()
-{
-    yInfo()<<__LINE__;    
-    Bottle cmd, reply;
-    cmd.addString("updateStatus");
-    DetectorPort.write(cmd,reply);
+{   
+    Bottle *reply;
+    Bottle &cmd = DetectorPortOut.prepare();
+    cmd.clear();
+    cmd.addString("getObject");
+    DetectorPortOut.write();
+    while (true)
+    {        
+        reply = DetectorPortIn.read(false);
+        yInfo()<<__LINE__;         
+        if (reply->size() > 1)
+        {
+            if (reply->get(1).asDouble() > 0)
+            {
+                yInfo()<<__LINE__;                 
+                return "object";
+            }
+            else 
+            {
+                break;
+            }
+        }
+    }
+    yInfo()<<__LINE__;
+    reply->clear();
+    DetectorPortOut.prepare();
+    cmd.clear();
+    cmd.addString("getFace");
+    DetectorPortOut.write();
+    while (true)
+    {
+        reply = DetectorPortIn.read(false);
+        if (reply->size() >1)
+        {
+            if (reply->get(1).asDouble() > 0)
+            {
+                return "face";
+            }
+            else 
+            {
+                break;
+            }
+        }
+    }
+    yInfo()<<__LINE__;
+    return "no object or face found";
+    /*if (reply.size() < 1) //>0
+    {
+        return "command failed";
+    }
+    else
+    {
+        if (reply.get(1).asDouble() != -1)
+        {
+            return "object";
+        }
+    }
+    cmd.clear();
+    reply.clear();
+    cmd.addString("getFace");
+    DetectorPortOut.write(cmd,reply);
     if (reply.size() < 1) //>0
     {
         return "command failed";
     }
-    if (reply.size() == 1)
-    {
-        return reply.get(0).asString();
-    }
-    else if (reply.get(0) == "object" || reply.get(1) == "object")
-    {
-        return "object";
-    }
     else
     {
-        yInfo()<<__LINE__;
-        return "command failed";
+        if (reply.get(1).asDouble() != -1)
+        {
+            return "face";
+        }
     }
-    yInfo()<<__LINE__;
-    return "command failed";
+    //yInfo()<<__LINE__;*/
 }
 
 bool SMModule::track(string trackedType)
@@ -169,20 +260,51 @@ bool SMModule::track(string trackedType)
         return false;
     }
 }
+    
 
-bool SMModule::getBinCoords()
+
+bool SMModule::getTargetBin()
 {
     Bottle reply;
-    RecogniserPort.write(inImage, reply);
+    RecogniserPort.write(*inImage, reply);
     if (reply.size() > 0)
     {
-        if (reply.get(0).asList()->size() > 2)
+        if (reply.get(0).asList()->size() > 0)
         {
+            targetBin = reply.get(0).asString();
+            if (targetBin == "no prediction")
+            {
+                objectName = "";
+
+                binPos[0] = -0.50;
+                binPos[1] = 0.00;
+                binPos[2] = -0.10;
+                return false;
+            }
+            objectName = reply.get(1).asString();
+ /*           
             binPos[0] = reply.get(0).asList()->get(0).asDouble();
             binPos[1] = reply.get(0).asList()->get(1).asDouble();
             binPos[2] = reply.get(0).asList()->get(2).asDouble();
-
-            return true;
+*/
+            if (targetBin == "aluminum")
+            {
+                binPos = bins[0];
+            }
+            if (targetBin == "plastic")
+            {
+                binPos = bins[1];
+            }
+            if (targetBin == "paper")
+            {
+                binPos = bins[2];
+            }
+        }
+        else
+        {
+            binPos[0] = -0.50;
+            binPos[1] = 0.00;
+            binPos[2] = -0.10;
         }
     }   
     return false;
@@ -199,14 +321,43 @@ void SMModule::pointAtObject()
     KinematicsPort.write(cmd,reply);
 }
 
+
+void SMModule::speak(const string &phrase)
+{    
+    yInfo()<<__LINE__; 
+    yInfo()<<phrase;  
+    // uncomment this when connecting to robot 
+    /*    
+    Bottle cmd, reply;
+    cmd.clear();
+    cmd.addString("say");
+    cmd.addString(phrase);    
+    if (SpeechPort.asPort().isOpen())
+    {
+        SpeechPort.write(cmd,reply);
+    }
+    */
+}
+
+
+
 bool SMModule::getBinImage()
 {
-    Bottle cmd;
+    Bottle &cmd = DetectorPortOut.prepare();
+    cmd.clear();
     cmd.addString("getCropImage");
-    DetectorPort.write(cmd, inImage);
-    if (inImage.width() == 0)
+    DetectorPortOut.write();
+    while (true)
     {
-        return false;
+        inImage= DetectorPortImage.read();
+        if (inImage->width() > 0)
+        {
+            return true;
+        }
+        else 
+        {
+            return false;
+        }
     }
     return true;
 }
@@ -221,6 +372,11 @@ bool SMModule::getBinImage()
     {
         return false;
     }
+}*/
+
+/*void SMModule::speak(string)
+{
+
 }*/
 
 void SMModule::pushObject()
@@ -244,21 +400,22 @@ bool SMModule::updateModule()
     {
         case INITIALIZE_TABLE:
         {
-            if (!initBins())
+            /*if (!initBins())
             {
                 close();
                 return false;
-            }
+            }*/
             state = IDLE_STATE;
             break;
         }
         case IDLE_STATE:
         {
-            string detectorOutput = queryDetector();
+            string detectorOutput = "object"; // revert to queryDetector(); instead of "object";
             if(detectorOutput == "face")
             {
                 state = TRACKING_FACE_STATE;
                 shouldWait = true;
+                speak("oh, I see a face");
                 yInfo()<<"switch to TRACKING_FACE_STATE";
                 
             }
@@ -266,6 +423,7 @@ bool SMModule::updateModule()
             {
                 state = TRACKING_OBJECT_STATE;
                 shouldWait = false;
+                speak("oh, I see an object");
                 yInfo()<<"switch to TRACKING_OBJECT_STATE";
             }
             else
@@ -296,11 +454,13 @@ bool SMModule::updateModule()
             if (!getBinImage())
             {
                 state = IDLE_STATE;
+                yInfo()<<"switch to IDLE_STATE";                
                 break;
             }
-            if (getBinCoords())
+            if (getTargetBin())
             {
                 state = POINT_OBJECT_STATE;
+                speak("please put it in this bin");
                 yInfo()<<"switch to POINT_OBJECT_STATE";
             }
             else
@@ -321,16 +481,9 @@ bool SMModule::updateModule()
         }
         case REACT_STATE:
         {
-            /*if (objectInBin())
-            {
-                state = IDLE_STATE;
-                yInfo()<<"switch to IDLE_STATE";
-            }
-            else
-            {*/
-                state = PUSH_OBJECT_STATE;
-                yInfo()<<"switch to PUSH_OBJECT_STATE";
-            //}
+            state = PUSH_OBJECT_STATE;
+            speak("okay, I will do it for you");
+            yInfo()<<"switch to PUSH_OBJECT_STATE";
 
             break;
         }
@@ -338,6 +491,7 @@ bool SMModule::updateModule()
         {
             pushObject();
             state = IDLE_STATE;
+            speak("there you go");
             yInfo()<<"switch to IDLE_STATE";
 
             break;
@@ -357,10 +511,10 @@ bool SMModule::respond(const Bottle& command, Bottle& reply) {
     else if (command.get(0).asString() == "runModule")
     {
         yInfo()<<__LINE__;
-        if (state == START_STATE)
+        if (state == START_STATE) 
         {
             yInfo()<<__LINE__;            
-            state = IDLE_STATE;
+            state = INITIALIZE_TABLE;  // this is the first state it should go to after START_STATE, not IDLE_STATE
             reply.addString("ack");
             return true;
         }
@@ -371,6 +525,32 @@ bool SMModule::respond(const Bottle& command, Bottle& reply) {
             return true;
         }
     }
+    else if (command.get(0).asString() == "objOnTable")
+    {
+        int check = checkObjBin(command);
+        if (check ==1)
+        {
+            state = IDLE_STATE;
+            reply.addString("ack");
+            return true;
+        }
+        if(check == 2)  
+        {
+            state = REACT_STATE;
+            reply.addString("ack");
+            return true;
+        }
+        if (check == 0)
+        {
+            state=IDLE_STATE;
+            reply.addString("nack");
+            return true;
+        }
+        state = IDLE_STATE; 
+        return false;
+    }
+
+
     else if (command.get(0).asString() == "getPos" && command.get(1).isString())
     {
         if (command.get(1).asString() == "object")
@@ -409,9 +589,12 @@ bool SMModule::interruptModule() {
     yInfo()<<"Interrupting State Machine module";
     commandPort.interrupt();
     KinematicsPort.interrupt();
-    DetectorPort.interrupt();
+    DetectorPortIn.interrupt();
+    DetectorPortOut.interrupt();
+    DetectorPortImage.interrupt();
     TrackingPort.interrupt();
     RecogniserPort.interrupt();
+    SpeechPort.interrupt();
     return true;
 }
 
@@ -420,9 +603,12 @@ bool SMModule::close() {
     yInfo()<<"closing State Machine module";
     commandPort.close();
     KinematicsPort.close();
-    DetectorPort.close();
+    DetectorPortIn.interrupt();
+    DetectorPortOut.interrupt();
+    DetectorPortImage.interrupt();
     TrackingPort.close();
     RecogniserPort.close();
+    SpeechPort.close();
     return true;
 }
 

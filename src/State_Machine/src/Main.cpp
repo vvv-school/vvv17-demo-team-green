@@ -16,7 +16,6 @@ int main(int argc, char * argv[])
     rf.configure(argc, argv);
     rf.setDefaultContext("StateMachineModule");
     //rf.setDefaultConfigFile("StateMachineModule.ini");
-    // rf.setVerbose(true);
 
     module.runModule(rf);
 

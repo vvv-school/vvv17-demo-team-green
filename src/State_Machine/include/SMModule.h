@@ -10,6 +10,10 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/opencv.hpp>
 
+// include for speech
+#include <cstdlib>
+#include <deque>
+#include <yarp/os/all.h>
 
 
 using namespace std;
@@ -68,29 +72,38 @@ private:
     void pushObject();
     //bool objectInBin();
     void pointAtObject();
-    bool getBinCoords();
+    bool getTargetBin();
     bool track(const string trackedType);
     string queryDetector();
     bool openPorts();
     bool initBins();
     bool getBinImage();
 
+    void speak(const string &phrase);
+
+    string targetBin;
+    string objectName;
+
 
 private:
 
-    yarp::sig::ImageOf<yarp::sig::PixelRgb> inImage;
+    yarp::sig::ImageOf<yarp::sig::PixelRgb> *inImage;
 
     std::string moduleName;
     bool shouldWait;
     int state;
+    int checkObjBin(const Bottle cmd);
     vector<vector<double> > bins;
     vector<double> objPos;
     vector<double> facePos;
     vector<double> binPos;
     yarp::os::RpcServer commandPort;                    // command port
     yarp::os::RpcClient KinematicsPort;                 // Kinematics
-    yarp::os::RpcClient DetectorPort;                   // Detector
+    BufferedPort<Bottle> DetectorPortOut;                   // Detector
+    BufferedPort<Bottle> DetectorPortIn;                   // Detector
+    BufferedPort<yarp::sig::ImageOf<yarp::sig::PixelRgb> > DetectorPortImage;                   // Detector
     yarp::os::RpcClient TrackingPort;                // Tracker
     yarp::os::RpcClient RecogniserPort;                 // Recogniser
     yarp::os::RpcClient BinPort;
+    yarp::os::RpcClient SpeechPort;
 };
