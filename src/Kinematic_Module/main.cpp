@@ -49,7 +49,7 @@ protected:
         {
             xnew[0] = max(-maxRange, xnew[0]);
             xnew[0] = min(-minRange, xnew[0]);
-            xnew[1] = 0.01;
+            xnew[1] = 0.1;
         }
 
         double A = norm2(xnew.subVector(0,1));
@@ -79,26 +79,35 @@ protected:
     {
         Matrix Rot(3,3);
         Vector ori(4);
-        if (hand=="right")
+        double alpha = M_PI/4.0-atan(x[0]/fabs(x[1]));
+        if (fabs(alpha) > M_PI/2.0) alpha = 0;
+
+        if (hand=="left")
         {
             Rot(0,0)=-1.0; Rot(0,1)= 0.0; Rot(0,2)= 0.0;
             Rot(1,0)= 0.0; Rot(1,1)= 0.0; Rot(1,2)=-1.0;
             Rot(2,0)= 0.0; Rot(2,1)=-1.0; Rot(2,2)= 0.0;
 
-//            ori[0]=0.0; ori[1]=0.0; ori[2]=-1.0; ori[3]= M_PI/2.0-atan(x[0]/fabs(x[1]));
+           ori[0]=0.0; ori[1]=0.0; ori[2]=-1.0; ori[3]= M_PI/4 +alpha;
+
+           Matrix Rot2 = axis2dcm(ori);
+
+           return dcm2axis(Rot2.submatrix(0,2,0,2)*Rot);
+
         }
-        else
-        {
+        else         {
             Rot(0,0)=-1.0; Rot(0,1)= 0.0; Rot(0,2)= 0.0;
             Rot(1,0)= 0.0; Rot(1,1)= 0.0; Rot(1,2)= -1.0;
             Rot(2,0)= 0.0; Rot(2,1)= -1.0; Rot(2,2)= 0.0;
-//            ori[0]=0.0; ori[1]=0.0; ori[2]= 1.0; ori[3]= M_PI/2.0-atan(x[0]/fabs(x[1]));
+            ori[0]=0.0; ori[1]=0.0; ori[2]= 1.0; ori[3]= alpha;
+            Matrix Rot2 = axis2dcm(ori);
+
+            return dcm2axis(Rot2.submatrix(0,2,0,2)*Rot);
+
+
         }
 
-//        Matrix Rot2 = axis2dcm(ori);
-
-//        return dcm2axis(Rot2.submatrix(0,2,0,2)*Rot);
-        return dcm2axis(Rot);
+//
 
     }
 
@@ -107,7 +116,8 @@ protected:
 {
         Matrix Rot(3,3);
         Vector ori(4);
-        if (hand=="left")
+        if (hand==""
+                "")
         {
             Rot(0,0)=-1.0; Rot(0,1)= 0.0; Rot(0,2)= 0.0;
             Rot(1,0)= 0.0; Rot(1,1)= 0.0; Rot(1,2)=-1.0;
@@ -140,9 +150,9 @@ protected:
     {
 
         if (hand=="right")
-            drvArmR.view(iarm);
-        else
             drvArmL.view(iarm);
+        else
+            drvArmR.view(iarm);
 
         Vector dof(10,1.0),dummy;
         iarm->setDOF(dof,dummy);
@@ -150,7 +160,16 @@ protected:
         Vector approach=x;
        // approach[1]+=0.1; // 10 cm
         iarm->goToPoseSync(approach,o);
-        return iarm->waitMotionDone();
+//        return iarm->waitMotionDone(0.1,4.0);
+
+        bool done=false;
+        double t0=Time::now();
+        while (!done&&(Time::now()-t0<10.0))
+        {
+            Time::delay(0.1);   // release the quantum to avoid starving resources
+            iarm->checkMotionDone(&done);
+        }
+        return done;
 
     }
 
@@ -192,7 +211,16 @@ protected:
         Vector target=bin;
         yDebug()<<"push target pos "<<target.toString().c_str();
         iarm->goToPoseSync(target,o,trajTime);
-        return iarm->waitMotionDone();
+//        return iarm->waitMotionDone(0.1,10.0);
+
+        bool done=false;
+        double t0=Time::now();
+        while (!done&&(Time::now()-t0<10.0))
+        {
+            Time::delay(0.1);   // release the quantum to avoid starving resources
+            iarm->checkMotionDone(&done);
+        }
+        return done;
 
      }
 
@@ -270,7 +298,7 @@ public:
         IControlLimits2   *ilim;
         IPositionControl2 *ipos;
         IControlMode2     *imod;
-        if (hand=="right")
+        if (hand=="left")
         {
             drvHandR.view(ilim);
             drvHandR.view(ipos);
