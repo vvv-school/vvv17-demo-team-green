@@ -8,6 +8,8 @@ using namespace yarp::os;
 
 // BinDetector::~BinDetector() { }
 
+#define RED 
+
 
 bool BinDetector::configure(yarp::os::ResourceFinder &rf) {
 
@@ -24,7 +26,13 @@ bool BinDetector::configure(yarp::os::ResourceFinder &rf) {
     highBound.push_back(255);
     highBound.push_back(255);
 
+    redThresholdH = cv::Scalar(20, 255, 255);
+    blueThresholdH = cv::Scalar(80, 100, 255);
+    greenThresholdH = cv::Scalar(40, 255, 255);
 
+    redThresholdL = cv::Scalar(0, 190, 200);
+    blueThresholdL = cv::Scalar(40, 0, 50);
+    greenThresholdL = cv::Scalar(30, 100, 100);
 
     moduleName = rf.check("name", Value("GC_bindetector")).asString();
     setName(moduleName.c_str());
@@ -75,8 +83,27 @@ bool BinDetector::updateModule() {
 
     mutex.unlock();
 
+
    
+
     cvtColor(img, img, CV_HSV2RGB);
+
+
+    // Blue position - alumunium
+    bins[0][0] = 30;
+    bins[0][1] = 200;
+    bins[0][2] = 0;
+
+    // Green position - plastic
+    bins[1][0] = 160;
+    bins[1][1] = 150;
+    bins[1][2] = 0;
+
+    // Red position - paper
+    bins[2][0] = 290;
+    bins[2][1] = 200;
+    bins[2][2] = 0;
+
 
     IplImage out = img;
     outImage.resize(out.width, out.height);
@@ -91,6 +118,7 @@ bool BinDetector::updateModule() {
 
     Bottle& output = outPort.prepare();
     output.clear();
+    getBins(output);
     outPort.write();
     
 
