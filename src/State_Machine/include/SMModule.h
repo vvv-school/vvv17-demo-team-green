@@ -78,7 +78,7 @@ private:
 
 private:
 
-    yarp::sig::ImageOf<yarp::sig::PixelRgb> inImage;
+    yarp::sig::ImageOf<yarp::sig::PixelRgb> *inImage;
 
     std::string moduleName;
     bool shouldWait;
@@ -89,7 +89,9 @@ private:
     vector<double> binPos;
     yarp::os::RpcServer commandPort;                    // command port
     yarp::os::RpcClient KinematicsPort;                 // Kinematics
-    yarp::os::RpcClient DetectorPort;                   // Detector
+    BufferedPort<Bottle> DetectorPortOut;                   // Detector
+    BufferedPort<Bottle> DetectorPortIn;                   // Detector
+    BufferedPort<yarp::sig::ImageOf<yarp::sig::PixelRgb> > DetectorPortImage;                   // Detector
     yarp::os::RpcClient TrackingPort;                // Tracker
     yarp::os::RpcClient RecogniserPort;                 // Recogniser
     yarp::os::RpcClient BinPort;

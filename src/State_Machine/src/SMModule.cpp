@@ -50,10 +50,13 @@ bool SMModule::openPorts()
     bool ret = false;
     ret = commandPort.open("/" + moduleName + "/rpc:i");
     ret &= KinematicsPort.open("/" + moduleName + "/kinematic_rpc:o");                 // Kinematics
-    ret &= DetectorPort.open("/" + moduleName + "/detector_rpc:o");                   // Detector
+    ret &= DetectorPortOut.open("/" + moduleName + "/detector:o");                   // Detector
+    ret &= DetectorPortIn.open("/" + moduleName + "/detector:i");                   // Detector
+    ret &= DetectorPortImage.open("/" + moduleName + "/detector_image:i");                   // Detector Image
     ret &= TrackingPort.open("/" + moduleName + "/tracking_rpc:o");                   // Tracker
     ret &= RecogniserPort.open("/" + moduleName + "/recogniser_rpc:o");                 // Recogniser
     ret &= BinPort.open("/" + moduleName + "/bin_detector_rpc:o");
+   // ret &= speechPort.open("/" + moduleName + "/Speech:o");
 
     if (!ret)
     {
@@ -123,28 +126,74 @@ double SMModule::getPeriod() {
 string SMModule::queryDetector()
 {
     yInfo()<<__LINE__;    
-    Bottle cmd, reply;
-    cmd.addString("updateStatus");
-    DetectorPort.write(cmd,reply);
+    Bottle *reply;
+    Bottle &cmd = DetectorPortOut.prepare();
+    cmd.clear();
+    cmd.addString("getObject");
+    DetectorPortOut.write();
+    while (true)
+    {
+        reply = DetectorPortIn.read(false);
+        if (reply->size() >0)
+        {
+            if (reply->get(1).asDouble() > 0)
+            {
+                return "object";
+            }
+            else 
+            {
+                break;
+            }
+        }
+    }
+    reply->clear();
+    DetectorPortOut.prepare();
+    cmd.clear();
+    cmd.addString("getFace");
+    DetectorPortOut.write();
+    while (true)
+    {
+        reply = DetectorPortIn.read(false);
+        if (reply->size() >0)
+        {
+            if (reply->get(1).asDouble() > 0)
+            {
+                return "face";
+            }
+            else 
+            {
+                break;
+            }
+        }
+    }
+    return "no object or face found";
+    /*if (reply.size() < 1) //>0
+    {
+        return "command failed";
+    }
+    else
+    {
+        if (reply.get(1).asDouble() != -1)
+        {
+            return "object";
+        }
+    }
+    cmd.clear();
+    reply.clear();
+    cmd.addString("getFace");
+    DetectorPortOut.write(cmd,reply);
     if (reply.size() < 1) //>0
     {
         return "command failed";
     }
-    if (reply.size() == 1)
-    {
-        return reply.get(0).asString();
-    }
-    else if (reply.get(0) == "object" || reply.get(1) == "object")
-    {
-        return "object";
-    }
     else
     {
-        yInfo()<<__LINE__;
-        return "command failed";
+        if (reply.get(1).asDouble() != -1)
+        {
+            return "face";
+        }
     }
-    yInfo()<<__LINE__;
-    return "command failed";
+    //yInfo()<<__LINE__;*/
 }
 
 bool SMModule::track(string trackedType)
@@ -173,7 +222,7 @@ bool SMModule::track(string trackedType)
 bool SMModule::getBinCoords()
 {
     Bottle reply;
-    RecogniserPort.write(inImage, reply);
+    RecogniserPort.write(*inImage, reply);
     if (reply.size() > 0)
     {
         if (reply.get(0).asList()->size() > 2)
@@ -201,12 +250,21 @@ void SMModule::pointAtObject()
 
 bool SMModule::getBinImage()
 {
-    Bottle cmd;
+    Bottle &cmd = DetectorPortOut.prepare();
+    cmd.clear();
     cmd.addString("getCropImage");
-    DetectorPort.write(cmd, inImage);
-    if (inImage.width() == 0)
+    DetectorPortOut.write();
+    while (true)
     {
-        return false;
+        inImage= DetectorPortImage.read();
+        if (inImage->width() > 0)
+        {
+            return true;
+        }
+        else 
+        {
+            return false;
+        }
     }
     return true;
 }
@@ -221,6 +279,11 @@ bool SMModule::getBinImage()
     {
         return false;
     }
+}*/
+
+/*void SMModule::speak(string)
+{
+
 }*/
 
 void SMModule::pushObject()
@@ -409,7 +472,9 @@ bool SMModule::interruptModule() {
     yInfo()<<"Interrupting State Machine module";
     commandPort.interrupt();
     KinematicsPort.interrupt();
-    DetectorPort.interrupt();
+    DetectorPortIn.interrupt();
+    DetectorPortOut.interrupt();
+    DetectorPortImage.interrupt();
     TrackingPort.interrupt();
     RecogniserPort.interrupt();
     return true;
@@ -420,7 +485,9 @@ bool SMModule::close() {
     yInfo()<<"closing State Machine module";
     commandPort.close();
     KinematicsPort.close();
-    DetectorPort.close();
+    DetectorPortIn.interrupt();
+    DetectorPortOut.interrupt();
+    DetectorPortImage.interrupt();
     TrackingPort.close();
     RecogniserPort.close();
     return true;
