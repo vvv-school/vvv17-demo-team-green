@@ -5,9 +5,6 @@
 #include <yarp/sig/all.h>
 #include <yarp/math/Math.h>
 
-
-
-
 using namespace std;
 using namespace yarp::os;
 using namespace yarp::dev;
@@ -33,59 +30,46 @@ protected:
     int startup_ctxt_arm_left;
     int startup_ctxt_gaze;
 
-    Vector target;
+    Vector target, binLoc;
     RpcServer rpcPort;
+    double tableHigh;
 
-
-
-    /***************************************************
-    Vector retrieveTarget3D(const Vector &cogL, const Vector &cogR)
-    {
-        Vector x;
-        igaze->triangulate3DPoint(cogL,cogR,x);
-        return x;
-    }
-    /***************************************************/
-    void fixate(const Vector &x)
-    {
-        igaze->lookAtFixationPoint(x);
-        igaze->waitMotionDone();
-    }
 
     /***************************************************/
     Vector computePosHandPoint(const Vector &x)
     {
 
-    Vector xnew = x;
-
-	
-    if (xnew[1]>-0.01 && xnew[1]< 0.01)
-	{
-        xnew[0] = max(-maxRange, xnew[0]);
-        xnew[0] = min(-minRange, xnew[0]);
-        xnew[1] = 0.01;
-	}
-
-    double A = norm2(xnew.subVector(0,1));
-    double alpha = atan(x[0]/fabs(x[1]));
-    yDebug()<<"alpha "<<alpha*180.0/M_PI;
+        Vector xnew = x;
 
 
-	if (A > maxRange )
-	{	
-        xnew[0]= maxRange*sin(alpha);
-        xnew[1]= sign(x[1]) * maxRange*cos(alpha);
-	}else if(A < minRange)
-	{
-        xnew[0]= minRange*sin(alpha);
-        xnew[1]= sign(x[1]) * minRange*cos(alpha);
-		
-	}
+        if (xnew[1]>-0.01 && xnew[1]< 0.01)
+        {
+            xnew[0] = max(-maxRange, xnew[0]);
+            xnew[0] = min(-minRange, xnew[0]);
+            xnew[1] = 0.01;
+        }
 
-      xnew[2]=height;
+        double A = norm2(xnew.subVector(0,1));
+        double alpha = atan(x[0]/fabs(x[1]));
+        yDebug()<<"alpha "<<alpha*180.0/M_PI;
 
-      return xnew;
-     }
+
+        if (A > maxRange )
+        {
+            xnew[0]= maxRange*sin(alpha);
+            xnew[1]= sign(x[1]) * maxRange*cos(alpha);
+        }
+        else if(A < minRange)
+        {
+            xnew[0]= minRange*sin(alpha);
+            xnew[1]= sign(x[1]) * minRange*cos(alpha);
+
+        }
+
+        xnew[2]=height;
+
+        return xnew;
+    }
 		
     /****************************************************/
     Vector computeHandOrientationPoint(const Vector &x, const string &hand)
@@ -135,23 +119,18 @@ protected:
             Rot(2,0)= 0.0; Rot(2,1)= -1.0; Rot(2,2)= 0.0;
 //            ori[0]=0.0; ori[1]=0.0; ori[2]= 1.0; ori[3]= M_PI/2.0-atan(x[0]/fabs(x[1]));
         }
-	else
-	{
-	    Rot(0,0)= 0.0; Rot(0,1)= 1.0; Rot(0,2)= 0.0;
-            Rot(1,0)=-1.0; Rot(1,1)= 0.0; Rot(1,2)= -1.0;
-            Rot(2,0)= 0.0; Rot(2,1)= 0.0; Rot(2,2)= 0.0;
-	}
+        else
+        {
+            Rot(0,0)= 0.0; Rot(0,1)= 0.0; Rot(0,2)=  1.0;
+            Rot(1,0)=-1.0; Rot(1,1)= 0.0; Rot(1,2)=  0.0;
+            Rot(2,0)= 0.0; Rot(2,1)= -1.0; Rot(2,2)= 0.0;
+        }
 //        Matrix Rot2 = axis2dcm(ori);
 
 //        return dcm2axis(Rot2.submatrix(0,2,0,2)*Rot);
         return dcm2axis(Rot);
 
     }
-
-
-
-
-
 
     /***************************************************/
     void pointTargetWithHand(const Vector &x, const Vector &o, const string &hand)
@@ -171,8 +150,7 @@ protected:
         iarm->waitMotionDone();
     }
 
-
- /***************************************************/
+    /***************************************************/
     void look_down()
     {
         Vector ang(3,0.0);
@@ -182,7 +160,6 @@ protected:
     }
 
     /***************************************************/
-
     void approachTargetWithHand(const Vector &x, const Vector &o, const string &hand)
     {
 
@@ -203,16 +180,13 @@ protected:
     }
 
     /***************************************************/
-
-
-    void roll(const Vector &x, const Vector &o, const string &hand)
+    void roll(const Vector &bin, const Vector &o,
+              const string &hand)
     {
-        iarm->setTrajTime(0.4);
+        iarm->setTrajTime(5.0);
 
-        Vector target=x;
-        if (hand =="right") target[1]+=0.1;
-	else if (hand =="left")target[1]-=0.1;
-	else target[0]-=0.1;
+        Vector target=bin;
+        yDebug()<<"push target pos "<<target.toString().c_str();
         iarm->goToPoseSync(target,o);
         iarm->waitMotionDone();
     }
@@ -282,12 +256,9 @@ public:
             target=min_j+fingers_closure_sat*(max_j-min_j);
             ipos->positionMove(j,target);
 
-            
         }
 
         // wait until all fingers have attained their set-points
-
-        // FILL IN THE CODE
         bool done=false;
         double t0=Time::now();
         while (!done&&(Time::now()-t0<10.0))
@@ -354,22 +325,42 @@ public:
 /***************************************************/
     bool push_it(const Vector &x, const Vector &bin)
     {
-	string hand;
-	// we select the hand accordingly
-        hand=(bin[0]<20.0?"front":bin[1]>0.0?"right":"left");
+        string hand;
+        Vector newBin = bin;
+        newBin[2] = tableHigh+0.05;
+        // we select the hand accordingly
+        if (bin[0]<-0.40)
+        {
+            hand = "front";
+            newBin[1] = x[1];
+//            newBin[2]=x[2];
+        }
+        else if (bin[1]>=0)
+        {
+            hand = "right";
+            newBin[0] = x[0];
+//            newBin[2]=x[2];
+        }
+        else
+        {
+            hand = "left";
+            newBin[0] = x[0];
+//            newBin[2]=x[2];
+        }
         yInfo()<<"selected hand = \""<<hand<<'\"';
 
-	Vector o=computeHandOrientationPush(hand);
+        Vector o=computeHandOrientationPush(hand);
 
-	approachTargetWithHand(x,o,hand);
+        approachTargetWithHand(x,o,hand);
         yInfo()<<"approached";
-	
 
-	roll(x,o,hand);
+
+        roll(newBin,o,hand);
         yInfo()<<"roll!";
+        //TODO: make the roll return
 
-	
-	home(hand);
+
+        home(hand);
         yInfo()<<"gone home";
         return true;
     }
@@ -387,7 +378,6 @@ public:
         optArm.put("remote","/"+robot+"/cartesianController/"+arm);
         optArm.put("local","/cartesian_client/"+arm);
 
-        
 
         // let's give the controller some time to warm up
         bool ok=false;
@@ -429,9 +419,9 @@ public:
             return false;
         }
 
-        // FILL IN THE CODE
-
         target.resize(3,0.0);
+        binLoc.resize(3,0.0);
+        tableHigh = -0.05;
 
         Property optGaze;
         optGaze.put("device","gazecontrollerclient");
@@ -486,7 +476,7 @@ public:
         drvGaze.view(igaze);
         igaze->storeContext(&startup_ctxt_gaze);
 
-        rpcPort.open("/service");
+        rpcPort.open("/Kinematic/rpc:i");
         attach(rpcPort);
         return true;
     }
@@ -563,8 +553,6 @@ public:
                     for (int i=1;i<=3; i++)
                         target[i-1] = command.get(i).asDouble();
                 }
-
-
             }
 
             bool ok=point_it(target,fingers_closure);
@@ -580,6 +568,58 @@ public:
                 reply.addString("I don't see any object!");
             }
         }
+
+        else if (cmd=="push_it")
+        {
+            // the "closure" accounts for how much we should
+            // close the fingers around the object:
+            // if closure == 0.0, the finger joints have to reach their minimum
+            // if closure == 1.0, the finger joints have to reach their maximum
+
+
+            // we can pass a new value via rpc
+            if (command.size()>1)
+            {
+                yInfo()<<"command size: "<<command.size();
+                if (command.size() ==7)
+                {
+                    yDebug()<<"check push_it";
+
+                    for (int i=1;i<=3; i++)
+                        target[i-1] = command.get(i).asDouble();
+                    for (int i=4;i<=6; i++)
+                        binLoc[i-4] = command.get(i).asDouble();
+                }
+            }
+
+            bool ok=push_it(target,binLoc);
+            // we assume the robot is not moving now
+            if (ok)
+            {
+                reply.addString("ack");
+                reply.addString("Yeah! I did it! Maybe...");
+            }
+            else
+            {
+                reply.addString("nack");
+                reply.addString("I don't see any object!");
+            }
+        }
+
+        else if (cmd=="set_table_high")
+        {
+            if (command.size()>1)
+            {
+                tableHigh = command.get(1).asDouble();
+                yInfo()<<"Table high "<<tableHigh;
+                reply.addString("ack");
+                reply.addString("table high ");
+                reply.addDouble(tableHigh);
+            }
+            else
+                reply.addString("nack");
+        }
+
         else
             // the father class already handles the "quit" command
             return RFModule::respond(command,reply);
