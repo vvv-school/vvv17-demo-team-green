@@ -5,6 +5,8 @@
 #include <yarp/sig/all.h>
 #include <yarp/math/Math.h>
 
+#include "Kinematic_Module_IDL.h"
+
 using namespace std;
 using namespace yarp::os;
 using namespace yarp::dev;
@@ -19,7 +21,7 @@ double minLength = 0.25;
 double height = 0.10;
 
 /*****************************************************/
-class CtrlModule: public RFModule
+class CtrlModule: public RFModule, public Kinematic_Module_IDL
 {
 protected:
     PolyDriver drvArmR, drvArmL, drvGaze;
@@ -33,6 +35,7 @@ protected:
     Vector target, binLoc;
     RpcServer rpcPort;
     double tableHigh;
+    double trajTime;
 
 
     /***************************************************/
@@ -183,7 +186,7 @@ protected:
     void roll(const Vector &bin, const Vector &o,
               const string &hand)
     {
-        iarm->setTrajTime(5.0);
+        iarm->setTrajTime(trajTime);
 
         Vector target=bin;
         yDebug()<<"push target pos "<<target.toString().c_str();
@@ -218,6 +221,41 @@ protected:
         igaze->setTrackingMode(false);
     }
 
+
+    // Thrift methods
+    double get_table_high()
+    {
+        return tableHigh;
+    }
+
+    bool set_table_high(const double _high)
+    {
+        tableHigh = _high;
+    }
+
+    double get_traj_time()
+    {
+        return trajTime;
+    }
+
+    bool set_traj_time(const double _trajTime)
+    {
+        trajTime = _trajTime;
+    }
+
+    bool point(const Vector &_targetPos)
+    {
+        target = _targetPos;
+        double fingers_closure = 0.5;
+        return point_it(target,fingers_closure);
+    }
+
+    bool push(const Vector &_targetPos, const Vector &_binLoc)
+    {
+        target = _targetPos;
+        binLoc = _binLoc;
+        return push_it(target,binLoc);
+    }
 
 public:
     /***************************************************/
@@ -406,7 +444,7 @@ public:
 public:
 
 /****************************************************************/
-  bool configure(ResourceFinder &rf)
+    bool configure(ResourceFinder &rf)
     {
         string robot=rf.check("robot",Value("icubSim")).asString();
 
@@ -422,6 +460,7 @@ public:
         target.resize(3,0.0);
         binLoc.resize(3,0.0);
         tableHigh = -0.05;
+        trajTime = 5.0;
 
         Property optGaze;
         optGaze.put("device","gazecontrollerclient");
@@ -508,123 +547,14 @@ public:
     }
 
     /***************************************************/
-    bool respond(const Bottle &command, Bottle &reply)
+
+    /***************************************************/
+
+    bool attach(RpcServer &source)
     {
-        string cmd=command.get(0).asString();
-        if (cmd=="help")
-        {
-            reply.addVocab(Vocab::encode("many"));
-            reply.addString("Available commands:");
-            reply.addString("- look_down");
-            reply.addString("- point_it");
-            reply.addString("- quit");
-        }
-        else if (cmd=="look_down")
-        {
-            look_down();
-            // we assume the robot is not moving now
-            reply.addString("ack");
-            reply.addString("Yep! I'm looking down now!");
-        }
-        else if (cmd=="point_it")
-        {
-            // the "closure" accounts for how much we should
-            // close the fingers around the object:
-            // if closure == 0.0, the finger joints have to reach their minimum
-            // if closure == 1.0, the finger joints have to reach their maximum
-            double fingers_closure=0.5; // default value
-
-            // we can pass a new value via rpc
-            if (command.size()>1)
-            {
-                yInfo()<<"command size: "<<command.size();
-                if (command.size() ==5)
-                {
-                    yDebug()<<"check";
-
-                    for (int i=1;i<=3; i++)
-                        target[i-1] = command.get(i).asDouble();
-                    fingers_closure=command.get(4).asDouble();
-                }
-                else if (command.size() ==4)
-                {
-                    yDebug()<<"check";
-
-                    for (int i=1;i<=3; i++)
-                        target[i-1] = command.get(i).asDouble();
-                }
-            }
-
-            bool ok=point_it(target,fingers_closure);
-            // we assume the robot is not moving now
-            if (ok)
-            {
-                reply.addString("ack");
-                reply.addString("Yeah! I did it! Maybe...");
-            }
-            else
-            {
-                reply.addString("nack");
-                reply.addString("I don't see any object!");
-            }
-        }
-
-        else if (cmd=="push_it")
-        {
-            // the "closure" accounts for how much we should
-            // close the fingers around the object:
-            // if closure == 0.0, the finger joints have to reach their minimum
-            // if closure == 1.0, the finger joints have to reach their maximum
-
-
-            // we can pass a new value via rpc
-            if (command.size()>1)
-            {
-                yInfo()<<"command size: "<<command.size();
-                if (command.size() ==7)
-                {
-                    yDebug()<<"check push_it";
-
-                    for (int i=1;i<=3; i++)
-                        target[i-1] = command.get(i).asDouble();
-                    for (int i=4;i<=6; i++)
-                        binLoc[i-4] = command.get(i).asDouble();
-                }
-            }
-
-            bool ok=push_it(target,binLoc);
-            // we assume the robot is not moving now
-            if (ok)
-            {
-                reply.addString("ack");
-                reply.addString("Yeah! I did it! Maybe...");
-            }
-            else
-            {
-                reply.addString("nack");
-                reply.addString("I don't see any object!");
-            }
-        }
-
-        else if (cmd=="set_table_high")
-        {
-            if (command.size()>1)
-            {
-                tableHigh = command.get(1).asDouble();
-                yInfo()<<"Table high "<<tableHigh;
-                reply.addString("ack");
-                reply.addString("table high ");
-                reply.addDouble(tableHigh);
-            }
-            else
-                reply.addString("nack");
-        }
-
-        else
-            // the father class already handles the "quit" command
-            return RFModule::respond(command,reply);
-        return true;
+        return this->yarp().attachAsServer(source);
     }
+
 
     /***************************************************/
     double getPeriod()
