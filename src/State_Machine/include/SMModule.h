@@ -15,7 +15,7 @@ using namespace yarp::os;
 #define IDLE_STATE                  1
 #define TRACKING_FACE_STATE         2
 #define TRACKING_OBJECT_STATE       3
-#define RECOGNIZE_OBJECT_STATE      4
+#define RECOGNISE_OBJECT_STATE      4
 #define POINT_OBJECT_STATE          5
 #define REACT_STATE                 6
 #define PUSH_OBJECT_STATE           7

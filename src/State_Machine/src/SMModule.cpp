@@ -57,15 +57,16 @@ bool SMModule::openPorts()
 
 
 double SMModule::getPeriod() {
-    return 0.01; // module periodicity (seconds)
+    return 0.5; // module periodicity (seconds)
 }
 
 string SMModule::queryDetector()
 {
+    yInfo()<<__LINE__;    
     Bottle cmd, reply;
     cmd.addString("updateStatus");
     DetectorPort.write(cmd,reply);
-    if (reply.size() > 0)
+    if (reply.size() < 1) //>0
     {
         return "command failed";
     }
@@ -79,8 +80,10 @@ string SMModule::queryDetector()
     }
     else
     {
+        yInfo()<<__LINE__;
         return "command failed";
     }
+    yInfo()<<__LINE__;
     return "command failed";
 }
 
@@ -176,59 +179,83 @@ bool SMModule::updateModule()
             {
                 state = TRACKING_FACE_STATE;
                 shouldWait = true;
+                yInfo()<<"switch to TRACKING_FACE_STATE";
+                
             }
             else if (detectorOutput == "object")
             {
                 state = TRACKING_OBJECT_STATE;
                 shouldWait = false;
+                yInfo()<<"switch to TRACKING_OBJECT_STATE";
             }
             else
             {
+                yInfo()<<__LINE__;                
                 shouldWait = true;
             }
+            break;
         }
         case TRACKING_FACE_STATE:
         {
             track("face");
             shouldWait = true;
+
+            break;        
         }
         case TRACKING_OBJECT_STATE:
         {
             track("object");
             shouldWait = false;
-            state = RECOGNIZE_OBJECT_STATE;
+            state = RECOGNISE_OBJECT_STATE;
+            yInfo()<<"switch to RECOGNISE_OBJECT_STATE";
+            
+            break;
         }
-        case RECOGNIZE_OBJECT_STATE:
+        case RECOGNISE_OBJECT_STATE:
         {
             if (getBinCoords())
             {
                 state = POINT_OBJECT_STATE;
+                yInfo()<<"switch to POINT_OBJECT_STATE";
             }
             else
             {
                 state = IDLE_STATE;
+                yInfo()<<"switch to IDLE_STATE";
             }
+
+            break;
         }
         case POINT_OBJECT_STATE:
         {
             pointAtObject();
             state = REACT_STATE;
+            yInfo()<<"switch to REACT_STATE";
+
+            break;
         }
         case REACT_STATE:
         {
             if (objectInBin())
             {
                 state = IDLE_STATE;
+                yInfo()<<"switch to IDLE_STATE";
             }
             else
             {
                 state = PUSH_OBJECT_STATE;
+                yInfo()<<"switch to PUSH_OBJECT_STATE";
             }
+
+            break;
         }
         case PUSH_OBJECT_STATE:
         {
             pushObject();
             state = IDLE_STATE;
+            yInfo()<<"switch to IDLE_STATE";
+
+            break;
         }
     }
     
@@ -238,18 +265,25 @@ bool SMModule::updateModule()
 
 bool SMModule::respond(const Bottle& command, Bottle& reply) {
     yInfo()<<"Got something, echo is on";
+    yInfo()<<command.toString();
+    yInfo()<<"Current state is "<<state;
     if (command.get(0).asString()=="quit")
         return false;
     else if (command.get(0).asString() == "runModule")
     {
-        if (state != START_STATE)
+        yInfo()<<__LINE__;
+        if (state == START_STATE)
         {
+            yInfo()<<__LINE__;            
             state = IDLE_STATE;
+            reply.addString("ack");
             return true;
         }
         else
         {
-            return false;
+            yInfo()<<__LINE__; 
+            reply.addString("nack");           
+            return true;
         }
     }
     else if (command.get(0).asString() == "getPos" && command.get(1).isString())
