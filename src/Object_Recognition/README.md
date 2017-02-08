@@ -1,5 +1,3 @@
-# Input Output of the module
+# Object recognition
 
-- Input: cropped image with the object to recognize
-
-- Output: label of the object
+Get the deploy / mean / trained model / label file in GDrive first ! Their respective path can be set by command-line
