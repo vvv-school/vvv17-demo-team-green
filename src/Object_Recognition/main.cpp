@@ -37,7 +37,18 @@ protected:
     if (predictions.size() > 0)
     {
       // TODO What kind of output ? just one predictions or multiple, with or without confidence ?
-      reply.addString(predictions[0].first);
+      std::string label = predictions[0].first;
+      if (label == "baking_tray" || label == "coke_can")
+      {
+        reply.addString("aluminium");
+      } else if (label == "ciok" || label == "toilet_paper")
+      {
+        reply.addString("paper");
+      } else if (label == "body_lotion" || label == "coke_zero")
+      {
+        reply.addString("plastic");
+      }
+      //reply.addString(predictions[0].first);
     } else
     {
       reply.addString("NO_PREDICTION");
