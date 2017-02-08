@@ -92,6 +92,7 @@ private:
     std::string moduleName;
     bool shouldWait;
     int state;
+    int checkObjBin(const Bottle cmd);
     vector<vector<double> > bins;
     vector<double> objPos;
     vector<double> facePos;

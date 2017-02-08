@@ -20,6 +20,7 @@ bool SMModule::configure(yarp::os::ResourceFinder &rf) {
     bins[2].resize(3);
 
 
+    targetBin = "";
     yInfo()<<"Configuring the SMModule module...";
     state = START_STATE;
     shouldWait = true; 
@@ -46,6 +47,39 @@ bool SMModule::configure(yarp::os::ResourceFinder &rf) {
 
 }
 
+int SMModule::checkObjBin(Bottle cmd)
+{
+
+    Bottle rpccmd, reply;
+    rpccmd.addString("stopTracking");
+    rpccmd.addString("object");
+    TrackingPort.write(rpccmd,reply);
+    if(reply.size()> 0)
+    {
+        if(reply.get(0).asString() == "ack")
+        {
+            initBins();
+            for(int i = 0; i<bins.size(); ++i)
+            {
+                if(cmd.get(0).asInt()<bins[i][0] +10  &&    cmd.get(0).asInt()>bins[i][0] -10   && cmd.get(1).asInt()<bins[i][1] +10  && cmd.get(1).asInt()>bins[i][1] -10 )        
+                {
+                    if(i==0 && targetBin == "aluminum")       
+                        return 1;
+                    if(i==1 && targetBin == "plastic")       
+                        return 1; 
+                    if(i==2 && targetBin == "paper")       
+                        return 1;         
+                }
+                if(cmd.get(0).asInt() < 190  &&    cmd.get(0).asInt() > 150   && cmd.get(1).asInt() < 150  && cmd.get(1).asInt() > 90 )        
+                {
+                    return 2;
+                }            
+            }
+        }    
+    }
+    return 0;
+}
+
 bool SMModule::openPorts()
 {
     bool ret = false;
@@ -70,6 +104,9 @@ bool SMModule::openPorts()
 
 bool SMModule::initBins()
 {
+    
+    if(TrackingPort.getOutputCount() == 0)
+        return true;
     Bottle cmd, reply;
     cmd.addString("lookTable");
     TrackingPort.write(cmd, reply); 
@@ -444,18 +481,9 @@ bool SMModule::updateModule()
         }
         case REACT_STATE:
         {
-            /*if (objectInBin())
-            {
-                state = IDLE_STATE;
-                speak("thank you");
-                yInfo()<<"switch to IDLE_STATE";
-            }
-            else
-            {*/
-                state = PUSH_OBJECT_STATE;
-                speak("okay, I will do it for you");
-                yInfo()<<"switch to PUSH_OBJECT_STATE";
-            //}
+            state = PUSH_OBJECT_STATE;
+            speak("okay, I will do it for you");
+            yInfo()<<"switch to PUSH_OBJECT_STATE";
 
             break;
         }
@@ -497,6 +525,32 @@ bool SMModule::respond(const Bottle& command, Bottle& reply) {
             return true;
         }
     }
+    else if (command.get(0).asString() == "objOnTable")
+    {
+        int check = checkObjBin(command);
+        if (check ==1)
+        {
+            state = IDLE_STATE;
+            reply.addString("ack");
+            return true;
+        }
+        if(check == 2)  
+        {
+            state = REACT_STATE;
+            reply.addString("ack");
+            return true;
+        }
+        if (check == 0)
+        {
+            state=IDLE_STATE;
+            reply.addString("nack");
+            return true;
+        }
+        state = IDLE_STATE; 
+        return false;
+    }
+
+
     else if (command.get(0).asString() == "getPos" && command.get(1).isString())
     {
         if (command.get(1).asString() == "object")
