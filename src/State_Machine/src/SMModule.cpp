@@ -43,6 +43,7 @@ bool SMModule::configure(yarp::os::ResourceFinder &rf) {
 
     // everything is fine
     return true;
+
 }
 
 bool SMModule::openPorts()
@@ -56,7 +57,8 @@ bool SMModule::openPorts()
     ret &= TrackingPort.open("/" + moduleName + "/tracking_rpc:o");                   // Tracker
     ret &= RecogniserPort.open("/" + moduleName + "/recogniser_rpc:o");                 // Recogniser
     ret &= BinPort.open("/" + moduleName + "/bin_detector_rpc:o");
-   // ret &= speechPort.open("/" + moduleName + "/Speech:o");
+    ret &= SpeechPort.open("/iSpeak/speech-dev/rpc");
+   // ret &= speechPort.open("/" + moduleName + "/Speech:o"); ??what is this?
 
     if (!ret)
     {
@@ -124,20 +126,21 @@ double SMModule::getPeriod() {
 }
 
 string SMModule::queryDetector()
-{
-    yInfo()<<__LINE__;    
+{   
     Bottle *reply;
     Bottle &cmd = DetectorPortOut.prepare();
     cmd.clear();
     cmd.addString("getObject");
     DetectorPortOut.write();
     while (true)
-    {
+    {        
         reply = DetectorPortIn.read(false);
-        if (reply->size() >0)
+        yInfo()<<__LINE__;         
+        if (reply->size() > 1)
         {
             if (reply->get(1).asDouble() > 0)
             {
+                yInfo()<<__LINE__;                 
                 return "object";
             }
             else 
@@ -146,6 +149,7 @@ string SMModule::queryDetector()
             }
         }
     }
+    yInfo()<<__LINE__;
     reply->clear();
     DetectorPortOut.prepare();
     cmd.clear();
@@ -154,7 +158,7 @@ string SMModule::queryDetector()
     while (true)
     {
         reply = DetectorPortIn.read(false);
-        if (reply->size() >0)
+        if (reply->size() >1)
         {
             if (reply->get(1).asDouble() > 0)
             {
@@ -166,6 +170,7 @@ string SMModule::queryDetector()
             }
         }
     }
+    yInfo()<<__LINE__;
     return "no object or face found";
     /*if (reply.size() < 1) //>0
     {
@@ -279,6 +284,26 @@ void SMModule::pointAtObject()
     KinematicsPort.write(cmd,reply);
 }
 
+
+void SMModule::speak(const string &phrase)
+{    
+    yInfo()<<__LINE__; 
+    yInfo()<<phrase;  
+    // uncomment this when connecting to robot 
+    /*    
+    Bottle cmd, reply;
+    cmd.clear();
+    cmd.addString("say");
+    cmd.addString(phrase);    
+    if (SpeechPort.asPort().isOpen())
+    {
+        SpeechPort.write(cmd,reply);
+    }
+    */
+}
+
+
+
 bool SMModule::getBinImage()
 {
     Bottle &cmd = DetectorPortOut.prepare();
@@ -338,21 +363,22 @@ bool SMModule::updateModule()
     {
         case INITIALIZE_TABLE:
         {
-            if (!initBins())
+            /*if (!initBins())
             {
                 close();
                 return false;
-            }
+            }*/
             state = IDLE_STATE;
             break;
         }
         case IDLE_STATE:
         {
-            string detectorOutput = queryDetector();
+            string detectorOutput = "object"; // revert to queryDetector(); instead of "object";
             if(detectorOutput == "face")
             {
                 state = TRACKING_FACE_STATE;
                 shouldWait = true;
+                speak("oh, I see a face");
                 yInfo()<<"switch to TRACKING_FACE_STATE";
                 
             }
@@ -360,6 +386,7 @@ bool SMModule::updateModule()
             {
                 state = TRACKING_OBJECT_STATE;
                 shouldWait = false;
+                speak("oh, I see an object");
                 yInfo()<<"switch to TRACKING_OBJECT_STATE";
             }
             else
@@ -390,11 +417,13 @@ bool SMModule::updateModule()
             if (!getBinImage())
             {
                 state = IDLE_STATE;
+                yInfo()<<"switch to IDLE_STATE";                
                 break;
             }
             if (getTargetBin())
             {
                 state = POINT_OBJECT_STATE;
+                speak("please put it in this bin");
                 yInfo()<<"switch to POINT_OBJECT_STATE";
             }
             else
@@ -418,11 +447,13 @@ bool SMModule::updateModule()
             /*if (objectInBin())
             {
                 state = IDLE_STATE;
+                speak("thank you");
                 yInfo()<<"switch to IDLE_STATE";
             }
             else
             {*/
                 state = PUSH_OBJECT_STATE;
+                speak("okay, I will do it for you");
                 yInfo()<<"switch to PUSH_OBJECT_STATE";
             //}
 
@@ -432,6 +463,7 @@ bool SMModule::updateModule()
         {
             pushObject();
             state = IDLE_STATE;
+            speak("there you go");
             yInfo()<<"switch to IDLE_STATE";
 
             break;
@@ -451,10 +483,10 @@ bool SMModule::respond(const Bottle& command, Bottle& reply) {
     else if (command.get(0).asString() == "runModule")
     {
         yInfo()<<__LINE__;
-        if (state == START_STATE)
+        if (state == START_STATE) 
         {
             yInfo()<<__LINE__;            
-            state = IDLE_STATE;
+            state = INITIALIZE_TABLE;  // this is the first state it should go to after START_STATE, not IDLE_STATE
             reply.addString("ack");
             return true;
         }
@@ -508,6 +540,7 @@ bool SMModule::interruptModule() {
     DetectorPortImage.interrupt();
     TrackingPort.interrupt();
     RecogniserPort.interrupt();
+    SpeechPort.interrupt();
     return true;
 }
 
@@ -521,6 +554,7 @@ bool SMModule::close() {
     DetectorPortImage.interrupt();
     TrackingPort.close();
     RecogniserPort.close();
+    SpeechPort.close();
     return true;
 }
 
