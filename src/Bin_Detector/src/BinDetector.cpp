@@ -16,23 +16,23 @@ bool BinDetector::configure(yarp::os::ResourceFinder &rf) {
     bins[1].resize(3);
     bins[2].resize(3);
 
-    lowBound.push_back(100);
-    lowBound.push_back(100);
-    lowBound.push_back(100);
+    lowBound.push_back(0);
+    lowBound.push_back(0);
+    lowBound.push_back(0);
     
-    highBound.push_back(160);
     highBound.push_back(255);
     highBound.push_back(255);
+    highBound.push_back(255);
 
 
 
-    moduleName = rf.check("name", Value("BinDetector")).asString();
+    moduleName = rf.check("name", Value("GC_bindetector")).asString();
     setName(moduleName.c_str());
 
 
     // open all ports
     bool ret = commandPort.open("/"+moduleName+"/rpc");
-    ret &= inPort.open("/"+moduleName+":i");
+    ret &= inPort.open("/"+moduleName+"/image:i");
     ret &= outPort.open("/"+moduleName+":o");
     ret &= imageOut.open("/"+moduleName+"-image:o");
     ret &= imageGray.open("/"+moduleName+"-gray:o");
@@ -68,9 +68,12 @@ bool BinDetector::updateModule() {
 
     cvtColor(img, img, CV_RGB2HSV);
 
+    mutex.lock();
 
-    cv::inRange(inColour_cv, cv::Scalar(lowBound[0],lowBound[1],lowBound[2]), 
+    cv::inRange(img, cv::Scalar(lowBound[0],lowBound[1],lowBound[2]), 
         cv::Scalar(highBound[0],highBound[1],highBound[2]), gray);
+
+    mutex.unlock();
 
    
     cvtColor(img, img, CV_HSV2RGB);
@@ -85,10 +88,11 @@ bool BinDetector::updateModule() {
     cvCopy( &outGray, (IplImage *) imgGr.getIplImage());
     imageGray.write();
 
+
     Bottle& output = outPort.prepare();
     output.clear();
     outPort.write();
-
+    
 
     return true;
 }
@@ -97,9 +101,35 @@ bool BinDetector::updateModule() {
 bool BinDetector::respond(const Bottle& command, Bottle& reply) {
     if (command.get(0).asString()=="getBins")
         getBins(reply);
+    else if (command.get(0).asString()=="setUpperBound")
+        setUpperBound(command.get(1).asInt(),command.get(2).asInt(),command.get(3).asInt());
+    else if (command.get(0).asString()=="setLowerBound")
+        setLowerBound(command.get(1).asInt(),command.get(2).asInt(),command.get(3).asInt());
+    else if (command.get(0).asString()=="getLowerBound")
+    {
+        std::vector<int32_t> bound = getLowerBound();
+        reply.clear();
+        reply.addInt(bound[0]);
+        reply.addInt(bound[1]);
+        reply.addInt(bound[2]);
+        return true;
+    }    
+    else if (command.get(0).asString()=="getUpperBound")
+        {
+        std::vector<int32_t> bound = getUpperBound();
+        reply.clear();
+        reply.addInt(bound[0]);
+        reply.addInt(bound[1]);
+        reply.addInt(bound[2]);
+        return true;
+    }  
     else {
+        reply.clear();
+    reply.addString("Error");
         return false;
     }
+    reply.clear();
+    reply.addString("Ok");
     return true;
 }
 
@@ -136,4 +166,46 @@ bool BinDetector::getBins(Bottle& reply)
 void BinDetector::binDetection()
 {
 
+}
+
+bool BinDetector::setLowerBound(const int32_t r, const int32_t g, const int32_t b)
+{
+    mutex.lock();
+    lowBound.clear();
+    lowBound.push_back(r);
+    lowBound.push_back(g);
+    lowBound.push_back(b);
+    mutex.unlock();
+    return true;
+}
+/********************************************************/
+bool BinDetector::setUpperBound(const int32_t r, const int32_t g, const int32_t b)
+{
+    mutex.lock();
+    highBound.clear();
+    highBound.push_back(r);
+    highBound.push_back(g);
+    highBound.push_back(b);
+    mutex.unlock();
+    return true;
+}
+
+
+std::vector<int32_t> BinDetector::getLowerBound()
+{
+    std::vector<int32_t> v;
+    mutex.lock();
+    v = lowBound;
+    mutex.unlock();
+    return v;
+}
+
+/********************************************************/
+std::vector<int32_t> BinDetector::getUpperBound()
+{
+    std::vector<int32_t> v;
+    mutex.lock();
+    v = highBound;
+    mutex.unlock();
+    return v;
 }

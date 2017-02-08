@@ -28,10 +28,15 @@ class BinDetector : public yarp::os::RFModule
     std::vector<int32_t> lowBound;
     std::vector<int32_t> highBound;
 
-    //yarp::os::Mutex mutex;
+    yarp::os::Mutex mutex;
 
 
     void binDetection();
+    bool setUpperBound(const int32_t r, const int32_t g, const int32_t b);
+    bool setLowerBound(const int32_t r, const int32_t g, const int32_t b);
+    std::vector<int32_t> getLowerBound();
+    std::vector<int32_t> getUpperBound();
+
 
 public:
 
