@@ -218,20 +218,51 @@ bool SMModule::track(string trackedType)
         return false;
     }
 }
+    
 
-bool SMModule::getBinCoords()
+
+bool SMModule::getTargetBin()
 {
     Bottle reply;
     RecogniserPort.write(*inImage, reply);
     if (reply.size() > 0)
     {
-        if (reply.get(0).asList()->size() > 2)
+        if (reply.get(0).asList()->size() > 0)
         {
+            targetBin = reply.get(0).asString();
+            if (targetBin == "no prediction")
+            {
+                objectName = "";
+
+                binPos[0] = -0.50;
+                binPos[1] = 0.00;
+                binPos[2] = -0.10;
+                return false;
+            }
+            objectName = reply.get(1).asString();
+ /*           
             binPos[0] = reply.get(0).asList()->get(0).asDouble();
             binPos[1] = reply.get(0).asList()->get(1).asDouble();
             binPos[2] = reply.get(0).asList()->get(2).asDouble();
-
-            return true;
+*/
+            if (targetBin == "aluminum")
+            {
+                binPos = bins[0];
+            }
+            if (targetBin == "plastic")
+            {
+                binPos = bins[1];
+            }
+            if (targetBin == "paper")
+            {
+                binPos = bins[2];
+            }
+        }
+        else
+        {
+            binPos[0] = -0.50;
+            binPos[1] = 0.00;
+            binPos[2] = -0.10;
         }
     }   
     return false;
@@ -361,7 +392,7 @@ bool SMModule::updateModule()
                 state = IDLE_STATE;
                 break;
             }
-            if (getBinCoords())
+            if (getTargetBin())
             {
                 state = POINT_OBJECT_STATE;
                 yInfo()<<"switch to POINT_OBJECT_STATE";

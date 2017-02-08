@@ -68,12 +68,15 @@ private:
     void pushObject();
     //bool objectInBin();
     void pointAtObject();
-    bool getBinCoords();
+    bool getTargetBin();
     bool track(const string trackedType);
     string queryDetector();
     bool openPorts();
     bool initBins();
     bool getBinImage();
+
+    string targetBin;
+    string objectName;
 
 
 private:
