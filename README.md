@@ -38,6 +38,9 @@ This module is in charge of implementing the state machine that will change the 
 people in charge: Alex, Ana
 
 # TESTING
+
+<img src="https://github.com/vvv-school/vvv17-demo-team-green/blob/master/misc/XML_file_layout.png"/>
+
 This part of the project has to check that all the modules actually give the right outputs and do what they are supposed to do
 
 people in charge: Damiano
