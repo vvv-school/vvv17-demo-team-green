@@ -2,6 +2,7 @@
 cmake_minimum_required(VERSION 2.8.9)
 
 # produce the cmake var PROJECT_NAME
+
 project(StateMachine)
 
 # mandatory use of these packages
@@ -27,20 +28,20 @@ icubcontrib_set_default_prefix()
 
 # building module
 include_directories(${YARP_INCLUDE_DIRS}
-                    ${CMAKE_SOURCE_DIR}/src
-                    ${CMAKE_SOURCE_DIR}/include)
+                    #${CMAKE_SOURCE_DIR}/src
+                    ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_executable(${PROJECT_NAME} 
-               ${CMAKE_SOURCE_DIR}/src/SMModule.cpp
-               ${CMAKE_SOURCE_DIR}/src/Main.cpp
-               ${CMAKE_SOURCE_DIR}/include/SMModule.h)
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/SMModule.cpp
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/Main.cpp
+               ${CMAKE_CURRENT_SOURCE_DIR}/include/SMModule.h)
 
 target_link_libraries(${PROJECT_NAME} ${YARP_LIBRARIES})
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 
 
 # generate ad-hoc project to perform "make uninstall"
-icubcontrib_add_uninstall_target()
+# icubcontrib_add_uninstall_target()
 
 file(GLOB scripts ${CMAKE_SOURCE_DIR}/app/scripts/*.xml)
 yarp_install(FILES ${scripts} DESTINATION ${ICUBCONTRIB_APPLICATIONS_INSTALL_DIR})
