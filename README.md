@@ -31,8 +31,7 @@ people in charge: Alessandra
 
 # STATE MACHINE
 
-<img src="hhttps://github.com/vvv-school/vvv17-demo-team-green/tree/master/misc/State_Machine_draft.png"/>
-
+<img src="https://github.com/vvv-school/vvv17-demo-team-green/tree/master/misc/State_Machine_draft.png"/>
 
 This module is in charge of implementing the state machine that will change the state of the robot according to inputs and current state.
 
