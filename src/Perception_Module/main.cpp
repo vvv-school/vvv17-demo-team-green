@@ -172,6 +172,9 @@ class Processing : public yarp::os::BufferedPort<yarp::sig::ImageOf<yarp::sig::P
     bool FaceDetectorInitialized; 
     cv::Point FaceCenter;
     cv::Point ObjectCenter;
+    
+    cv::Mat SavedCropImage;
+    bool savedImageValid = false;
 
     
     void InitFaceDetector(int Height,int Width)
@@ -195,6 +198,7 @@ public:
         FaceCenter.y = -1;
         ObjectCenter.x = -1;
         ObjectCenter.y = -1;
+        savedImageValid = false;
         this->moduleName = moduleName;
     }
 
@@ -550,6 +554,22 @@ public:
         }
          */
         
+        MyCallBack.lock();
+        // Clear the command from the queue.         
+        if(MyCallBack.IsGetCroppedImageCommand())
+        {
+            if(savedImageValid)
+            {
+                cropOutImage2sm.resize(SavedCropImage.cols,SavedCropImage.rows);
+                IplImage crop_img_ipl = SavedCropImage;
+                cvCopy( &crop_img_ipl, (IplImage *) cropOutImage2sm.getIplImage());
+                cropOutPort2sm.write();    
+                savedImageValid = false; // Saved, set the flag
+            }                        
+        }        
+        MyCallBack.unlock();
+        
+        
         outTargets.clear();
         if(SelectedObjDistIndex>-1)
         {
@@ -600,11 +620,21 @@ public:
                     detectedFacePort.write(); 
                 
                 // Sending out cropped image
-                cv::Mat cropped_img_roi = inColour_cv(ObjRect);                
+                cv::Mat cropped_img_roi = inColour_cv(ObjRect); 
+                SavedCropImage = cropped_img_roi.clone();
+                savedImageValid = true;
+                /*
+                cropOutImage2sm.resize(SavedCropImage.cols,SavedCropImage.rows);
+                IplImage crop_img_ipl = SavedCropImage;
+                cvCopy( &crop_img_ipl, (IplImage *) cropOutImage2sm.getIplImage());
+                cropOutPort2sm.write();    
+                */
+                /*
                 cropOutImage2sm.resize(cropped_img_roi.cols,cropped_img_roi.rows);
                 IplImage crop_img_ipl = cropped_img_roi;
                 cvCopy( &crop_img_ipl, (IplImage *) cropOutImage2sm.getIplImage());
-                cropOutPort2sm.write();                                                
+                cropOutPort2sm.write();    
+                */                                            
                 //cropOutPort.write();                                    
             }
             MyCallBack.unlock();
@@ -631,10 +661,6 @@ public:
             MyCallBack.unlock();
         }
         
-        MyCallBack.lock();
-        // Clear the command from the queue. 
-        bool CropImgCommanf = MyCallBack.IsGetCroppedImageCommand();
-        MyCallBack.unlock();
         
         //cropOutImage2sm
         
