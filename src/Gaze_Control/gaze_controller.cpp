@@ -17,6 +17,8 @@
 #include <yarp/dev/GazeControl.h>
 #include <yarp/dev/PolyDriver.h>
 
+#include <cmath>
+
 using namespace std;
 using namespace yarp::os;
 using namespace yarp::dev;
@@ -77,6 +79,7 @@ public:
     {
 
         Bottle *pTarget = targetsPort.read(false);
+
         Vector px(2);
 
         mutex.lock();
@@ -85,6 +88,7 @@ public:
             yInfo()<<"track face";
             px[0]=pTarget->get(1).asDouble();
             px[1]=pTarget->get(2).asDouble();
+            yInfo()<<"px0, px1" << px[0] << px[1];
             if(px[0]!=-1 && px[1]!=-1)
               igaze->lookAtMonoPixel(0,px);   // 0: left image plane is used, 1: for right
             //yInfo()<<"gazing at pixel: "<<px.toString(3,3);
@@ -103,13 +107,17 @@ public:
         Vector x;
         Vector o;
         igaze->getHeadPose(x,o,NULL);
-        double angle = o[1]*o[3];
+        double angle = (o[1]*o[3])*(M_PI/180);
         yInfo()<<"angle " << angle;
-        if(angle < -30){
+        if(angle < -30 && !trackingFace){
           Bottle neckDown, response;
           neckDown.addString("objOnTable");
+          neckDown.addDouble(px[0]);
+          neckDown.addDouble(px[1]);
           neckPort.write(neckDown,response);
         }
+        if(pTarget!=NULL)
+          pTarget->clear();
     }
 
     virtual void setTrackingFace(bool isTrackingFace){
@@ -160,7 +168,10 @@ public:
         // set the thread rate that is an integer accounting for [ms]
         thr->setRate(int(period*1000.0));
 
-        return thr->start();
+        thr->start();
+        thr->suspend();
+
+        return true;
     }
 
     virtual bool close()
