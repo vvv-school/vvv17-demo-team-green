@@ -5,6 +5,10 @@
 #include <yarp/os/RpcClient.h>
 #include <yarp/os/BufferedPort.h>
 #include <yarp/os/Bottle.h>
+#include <yarp/sig/all.h>
+#include <yarp/dev/all.h>
+#include <opencv2/core/core.hpp>
+#include <opencv2/opencv.hpp>
 
 
 
@@ -19,6 +23,7 @@ using namespace yarp::os;
 #define POINT_OBJECT_STATE          5
 #define REACT_STATE                 6
 #define PUSH_OBJECT_STATE           7
+#define INITIALIZE_TABLE            8
 
 class SMModule : public yarp::os::RFModule
 {
@@ -61,19 +66,24 @@ public:
 
 private:
     void pushObject();
-    bool objectInBin();
+    //bool objectInBin();
     void pointAtObject();
     bool getBinCoords();
     bool track(const string trackedType);
     string queryDetector();
     bool openPorts();
+    bool initBins();
+    bool getBinImage();
 
 
 private:
+
+    yarp::sig::ImageOf<yarp::sig::PixelRgb> inImage;
+
     std::string moduleName;
     bool shouldWait;
     int state;
-
+    vector<vector<double> > bins;
     vector<double> objPos;
     vector<double> facePos;
     vector<double> binPos;
@@ -82,4 +92,5 @@ private:
     yarp::os::RpcClient DetectorPort;                   // Detector
     yarp::os::RpcClient TrackingPort;                // Tracker
     yarp::os::RpcClient RecogniserPort;                 // Recogniser
+    yarp::os::RpcClient BinPort;
 };
